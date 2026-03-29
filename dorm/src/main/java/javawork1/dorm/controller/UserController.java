@@ -1,0 +1,82 @@
+package javawork1.dorm.controller;
+
+import javawork1.dorm.entity.User;
+import javawork1.dorm.repository.UserRepository;
+import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // ================= 接口 1：登录核验 =================
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody User loginRequest) {
+        System.out.println("【安检中心】收到登录请求，账号: " + loginRequest.getUsername());
+
+        return userRepository.findByUsername(loginRequest.getUsername())
+                .map(user -> {
+                    if (BCrypt.checkpw(loginRequest.getPassword(), user.getPassword())) {
+                        System.out.println("【安检通过】身份: " + user.getRole());
+                        return ResponseEntity.ok(user);
+                    } else {
+                        System.out.println("【安检拦截】密码碰撞失败");
+                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("密码错误");
+                    }
+                })
+                .orElseGet(() -> {
+                    System.out.println("【安检拦截】账号不存在");
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("账号不存在");
+                });
+    }
+
+    // ================= 接口 2：安全注册 (新增) =================
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody User registerRequest) {
+        System.out.println("【安检中心】收到注册申请，申请账号: " + registerRequest.getUsername());
+
+        // 防线 1：物理查重拦截
+        if (userRepository.findByUsername(registerRequest.getUsername()).isPresent()) {
+            System.out.println("【安检拦截】账号已被占用！");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("该账号已被占用，请更换账号！");
+        }
+
+        // 防线 2 & 3：字段隔离与强制加密
+        User secureUser = new User();
+        secureUser.setUsername(registerRequest.getUsername());
+        secureUser.setPassword(BCrypt.hashpw(registerRequest.getPassword(), BCrypt.gensalt()));
+
+        // 防线 4：越权切断，强制锁定为学生
+        secureUser.setRole("STUDENT");
+
+        userRepository.save(secureUser);
+        System.out.println("【安检通过】新学生档案已建立！");
+        return ResponseEntity.ok("注册成功！");
+    }
+
+    // ================= 接口 3：初始化测试数据 =================
+    @GetMapping("/init")
+    public String initTestUsers() {
+        if(userRepository.count() == 0) {
+            User admin = new User();
+            admin.setUsername("admin");
+            admin.setPassword(BCrypt.hashpw("123456", BCrypt.gensalt()));
+            admin.setRole("ADMIN");
+            userRepository.save(admin);
+
+            User student = new User();
+            student.setUsername("student");
+            student.setPassword(BCrypt.hashpw("123456", BCrypt.gensalt()));
+            student.setRole("STUDENT");
+            userRepository.save(student);
+            return "加密测试账号初始化成功！数据库中已不存在明文密码。";
+        }
+        return "账号已存在。如果旧密码是明文，请手动清空数据库后重新初始化！";
+    }
+}
