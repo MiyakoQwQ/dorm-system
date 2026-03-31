@@ -861,7 +861,7 @@ public class DormClientApp extends Application {
             }
         });
 
-        pane.getChildren().add(new Label("📢 最新通知公告"), listView);
+        pane.getChildren().addAll(new Label("📢 最新通知公告"), listView);
         new Thread(() -> loadStudentAnnouncements(listView)).start();
         return pane;
     }
