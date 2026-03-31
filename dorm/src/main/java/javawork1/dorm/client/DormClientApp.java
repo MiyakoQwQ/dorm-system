@@ -38,6 +38,7 @@ public class DormClientApp extends Application {
     private ObjectMapper mapper = new ObjectMapper();
     private String currentUserRole = "";
     private Long currentUserId = null;
+    private String currentUsername = "";
     private TabPane mainTabPane;
     private StudentInfo currentStudentInfo;
 
@@ -176,6 +177,7 @@ public class DormClientApp extends Application {
                     JsonNode node = mapper.readTree(res.body());
                     currentUserRole = node.get("role").asText();
                     currentUserId = node.get("id").asLong();
+                    currentUsername = username;
                     loadCurrentStudentInfo(); // 加载学生信息
                 } else {
                     msgLabel.setText("登录失败: " + res.body());
@@ -528,6 +530,38 @@ public class DormClientApp extends Application {
         searchBtn.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
         statusFilter.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
 
+        acceptBtn.setOnAction(e -> {
+            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择一条报修单"); return; }
+            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/accept", null);
+            loadOrders(table, statusFilter.getValue(), searchField.getText());
+        });
+
+        resolveBtn.setOnAction(e -> {
+            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择一条报修单"); return; }
+            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/resolve",
+                    "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
+            loadOrders(table, statusFilter.getValue(), searchField.getText());
+        });
+
+        rejectBtn.setOnAction(e -> {
+            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择一条报修单"); return; }
+            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/reject",
+                    "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
+            loadOrders(table, statusFilter.getValue(), searchField.getText());
+        });
+
+        remarkBtn.setOnAction(e -> {
+            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择一条报修单"); return; }
+            if (remarkArea.getText().isEmpty()) { showAlert("请填写批注内容"); return; }
+            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/remark",
+                    "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
+            showAlert("批注已保存");
+        });
+
         // 初始加载
         loadOrders(table, "全部", "");
 
@@ -586,6 +620,24 @@ public class DormClientApp extends Application {
         pane.setCenter(table);
 
         refreshBtn.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue()));
+        buildingFilter.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue()));
+        statusFilter.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue()));
+
+        addBtn.setOnAction(e -> showDormRoomDialog(null, table));
+
+        editBtn.setOnAction(e -> {
+            DormRoom selected = (DormRoom) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择一条宿舍记录"); return; }
+            showDormRoomDialog(selected, table);
+        });
+
+        deleteBtn.setOnAction(e -> {
+            DormRoom selected = (DormRoom) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择要删除的宿舍"); return; }
+            deleteAction(SERVER_URL + "/api/rooms/" + selected.getId());
+            loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue());
+        });
+
         loadDormRooms(table, "全部楼栋", "全部状态");
 
         return pane;
@@ -668,6 +720,28 @@ public class DormClientApp extends Application {
 
         table.getColumns().addAll(idCol, titleCol, typeCol, publisherCol, statusCol, timeCol);
         pane.setCenter(table);
+
+        newBtn.setOnAction(e -> showAnnouncementDialog(null, table));
+
+        editBtn.setOnAction(e -> {
+            Announcement selected = (Announcement) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择要编辑的公告"); return; }
+            showAnnouncementDialog(selected, table);
+        });
+
+        deleteBtn.setOnAction(e -> {
+            Announcement selected = (Announcement) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择要删除的公告"); return; }
+            deleteAction(SERVER_URL + "/api/announcements/" + selected.getId());
+            loadAnnouncements(table);
+        });
+
+        archiveBtn.setOnAction(e -> {
+            Announcement selected = (Announcement) table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择要归档的公告"); return; }
+            postAction(SERVER_URL + "/api/announcements/" + selected.getId() + "/archive", null);
+            loadAnnouncements(table);
+        });
 
         loadAnnouncements(table);
 
@@ -820,6 +894,53 @@ public class DormClientApp extends Application {
 
         Button submitBtn = new Button("🚀 提交报修");
         submitBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 16; -fx-pref-height: 45;");
+        submitBtn.setMaxWidth(Double.MAX_VALUE);
+
+        Label resultMsg = new Label();
+        resultMsg.setStyle("-fx-font-size: 14;");
+
+        submitBtn.setOnAction(e -> {
+            if (nameField.getText().isEmpty() || roomField.getText().isEmpty() || descArea.getText().isEmpty()) {
+                resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
+                resultMsg.setText("❌ 请填写完整信息");
+                return;
+            }
+            if (descArea.getText().length() < 10) {
+                resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
+                resultMsg.setText("❌ 问题描述不少于10个字");
+                return;
+            }
+            try {
+                String body = String.format(
+                    "{\"studentName\":\"%s\",\"roomNumber\":\"%s\",\"repairType\":\"%s\",\"priority\":\"%s\",\"description\":\"%s\",\"userId\":%d}",
+                    nameField.getText().replace("\"", "'"),
+                    roomField.getText().replace("\"", "'"),
+                    typeBox.getValue(),
+                    priorityBox.getValue(),
+                    descArea.getText().replace("\"", "'").replace("\n", " "),
+                    currentUserId
+                );
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(SERVER_URL + "/api/orders"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200 || res.statusCode() == 201) {
+                    resultMsg.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 14;");
+                    resultMsg.setText("✅ 报修提交成功！请等待管理员处理。");
+                    descArea.clear();
+                } else {
+                    resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
+                    resultMsg.setText("❌ 提交失败: " + res.body());
+                }
+            } catch (Exception ex) {
+                resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
+                resultMsg.setText("❌ 网络错误，请检查服务器连接");
+                ex.printStackTrace();
+            }
+        });
 
         formBox.getChildren().addAll(
             new Label("报修人:"), nameField,
@@ -827,7 +948,7 @@ public class DormClientApp extends Application {
             new Label("报修类型:"), typeBox,
             new Label("优先级:"), priorityBox,
             new Label("问题描述:"), descArea,
-            submitBtn
+            submitBtn, resultMsg
         );
 
         pane.getChildren().add(formBox);
@@ -1053,6 +1174,208 @@ public class DormClientApp extends Application {
                 .build();
         HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
         return res.body();
+    }
+
+    /** 通用 POST（body 为 JSON 字符串，可为 null 表示无 body） */
+    private void postAction(String url, String jsonBody) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(URI.create(url));
+            if (jsonBody != null && !jsonBody.isEmpty()) {
+                builder.header("Content-Type", "application/json")
+                       .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
+            } else {
+                builder.POST(HttpRequest.BodyPublishers.noBody());
+            }
+            HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            if (res.statusCode() >= 400) {
+                javafx.application.Platform.runLater(() -> showAlert("操作失败: " + res.body()));
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            javafx.application.Platform.runLater(() -> showAlert("网络错误，请检查服务器连接"));
+        }
+    }
+
+    /** 通用 DELETE */
+    private void deleteAction(String url) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .DELETE()
+                    .build();
+            client.send(req, HttpResponse.BodyHandlers.ofString());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            javafx.application.Platform.runLater(() -> showAlert("删除失败，请检查网络连接"));
+        }
+    }
+
+    /** 通用提示弹窗 */
+    private void showAlert(String message) {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                javafx.scene.control.Alert.AlertType.INFORMATION);
+        alert.setTitle("提示");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    /** 宿舍新增/编辑对话框 */
+    @SuppressWarnings("rawtypes")
+    private void showDormRoomDialog(DormRoom room, TableView table) {
+        Stage dialog = new Stage();
+        dialog.setTitle(room == null ? "新增宿舍" : "编辑宿舍");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(15);
+        grid.setVgap(12);
+        grid.setPadding(new Insets(25));
+
+        TextField buildingField = new TextField(room != null ? room.getBuildingName() : "");
+        buildingField.setPromptText("如：一号楼");
+        TextField roomNoField = new TextField(room != null ? room.getRoomNumber() : "");
+        roomNoField.setPromptText("如：101");
+        TextField floorField = new TextField(room != null ? String.valueOf(room.getFloor()) : "");
+        floorField.setPromptText("楼层数字");
+        ComboBox<String> typeBox = new ComboBox<>();
+        typeBox.getItems().addAll("四人间", "六人间", "双人间", "单人间");
+        typeBox.setValue(room != null && room.getRoomType() != null ? room.getRoomType() : "四人间");
+        TextField capacityField = new TextField(room != null ? String.valueOf(room.getCapacity()) : "4");
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("Normal", "Maintenance", "Closed");
+        statusBox.setValue(room != null && room.getStatus() != null ? room.getStatus() : "Normal");
+
+        grid.add(new Label("楼栋:"), 0, 0); grid.add(buildingField, 1, 0);
+        grid.add(new Label("房间号:"), 0, 1); grid.add(roomNoField, 1, 1);
+        grid.add(new Label("楼层:"), 0, 2); grid.add(floorField, 1, 2);
+        grid.add(new Label("类型:"), 0, 3); grid.add(typeBox, 1, 3);
+        grid.add(new Label("额定人数:"), 0, 4); grid.add(capacityField, 1, 4);
+        grid.add(new Label("状态:"), 0, 5); grid.add(statusBox, 1, 5);
+
+        Button saveBtn = new Button(room == null ? "➕ 新增" : "💾 保存");
+        saveBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 14; -fx-pref-height: 38;");
+        saveBtn.setMaxWidth(Double.MAX_VALUE);
+
+        saveBtn.setOnAction(ev -> {
+            try {
+                int floor = Integer.parseInt(floorField.getText().trim());
+                int capacity = Integer.parseInt(capacityField.getText().trim());
+                String body = String.format(
+                    "{\"buildingName\":\"%s\",\"roomNumber\":\"%s\",\"floor\":%d,\"roomType\":\"%s\",\"capacity\":%d,\"status\":\"%s\"}",
+                    buildingField.getText().replace("\"","'"),
+                    roomNoField.getText().replace("\"","'"),
+                    floor, typeBox.getValue(), capacity, statusBox.getValue()
+                );
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
+                        .header("Content-Type", "application/json");
+                if (room == null) {
+                    reqBuilder.uri(URI.create(SERVER_URL + "/api/rooms"))
+                              .POST(HttpRequest.BodyPublishers.ofString(body));
+                } else {
+                    reqBuilder.uri(URI.create(SERVER_URL + "/api/rooms/" + room.getId()))
+                              .PUT(HttpRequest.BodyPublishers.ofString(body));
+                }
+                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() < 400) {
+                    dialog.close();
+                    new Thread(() -> loadDormRooms(table, "全部楼栋", "全部状态")).start();
+                } else {
+                    showAlert("保存失败: " + res.body());
+                }
+            } catch (NumberFormatException nfe) {
+                showAlert("楼层和额定人数必须是数字");
+            } catch (Exception ex) {
+                showAlert("网络错误: " + ex.getMessage());
+            }
+        });
+
+        grid.add(saveBtn, 0, 6, 2, 1);
+        dialog.setScene(new Scene(grid, 380, 340));
+        dialog.showAndWait();
+    }
+
+    /** 公告新增/编辑对话框 */
+    @SuppressWarnings("rawtypes")
+    private void showAnnouncementDialog(Announcement ann, TableView table) {
+        Stage dialog = new Stage();
+        dialog.setTitle(ann == null ? "发布公告" : "编辑公告");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(15);
+        grid.setVgap(12);
+        grid.setPadding(new Insets(25));
+
+        TextField titleField = new TextField(ann != null ? ann.getTitle() : "");
+        titleField.setPromptText("公告标题");
+        titleField.setPrefWidth(280);
+
+        ComboBox<String> typeBox = new ComboBox<>();
+        typeBox.getItems().addAll("通知", "公告", "紧急");
+        typeBox.setValue(ann != null && ann.getType() != null ? ann.getType() : "通知");
+
+        TextArea contentArea = new TextArea(ann != null ? ann.getContent() : "");
+        contentArea.setPromptText("公告内容...");
+        contentArea.setPrefRowCount(5);
+        contentArea.setPrefWidth(280);
+
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("Draft", "Published", "Archived");
+        statusBox.setValue(ann != null && ann.getStatus() != null ? ann.getStatus() : "Published");
+
+        grid.add(new Label("标题:"), 0, 0); grid.add(titleField, 1, 0);
+        grid.add(new Label("类型:"), 0, 1); grid.add(typeBox, 1, 1);
+        grid.add(new Label("内容:"), 0, 2); grid.add(contentArea, 1, 2);
+        grid.add(new Label("状态:"), 0, 3); grid.add(statusBox, 1, 3);
+
+        Button saveBtn = new Button(ann == null ? "📢 发布" : "💾 保存");
+        saveBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 14; -fx-pref-height: 38;");
+        saveBtn.setMaxWidth(Double.MAX_VALUE);
+
+        saveBtn.setOnAction(ev -> {
+            if (titleField.getText().isEmpty() || contentArea.getText().isEmpty()) {
+                showAlert("标题和内容不能为空");
+                return;
+            }
+            try {
+                String publisher = currentStudentInfo != null ? currentStudentInfo.getRealName() : currentUsername;
+                String body = String.format(
+                    "{\"title\":\"%s\",\"type\":\"%s\",\"content\":\"%s\",\"status\":\"%s\",\"publisher\":\"%s\"}",
+                    titleField.getText().replace("\"","'"),
+                    typeBox.getValue(),
+                    contentArea.getText().replace("\"","'").replace("\n"," "),
+                    statusBox.getValue(),
+                    publisher
+                );
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
+                        .header("Content-Type", "application/json");
+                if (ann == null) {
+                    reqBuilder.uri(URI.create(SERVER_URL + "/api/announcements"))
+                              .POST(HttpRequest.BodyPublishers.ofString(body));
+                } else {
+                    reqBuilder.uri(URI.create(SERVER_URL + "/api/announcements/" + ann.getId()))
+                              .PUT(HttpRequest.BodyPublishers.ofString(body));
+                }
+                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() < 400) {
+                    dialog.close();
+                    new Thread(() -> loadAnnouncements(table)).start();
+                } else {
+                    showAlert("发布失败: " + res.body());
+                }
+            } catch (Exception ex) {
+                showAlert("网络错误: " + ex.getMessage());
+            }
+        });
+
+        grid.add(saveBtn, 0, 4, 2, 1);
+        dialog.setScene(new Scene(grid, 440, 380));
+        dialog.showAndWait();
     }
 
     public static void main(String[] args) {
