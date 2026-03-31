@@ -2,9 +2,26 @@ package javawork1.dorm.repository;
 
 import javawork1.dorm.entity.RepairOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
-import java.util.List; // 记得导入 List
+import org.springframework.data.jpa.repository.Query;
+import java.util.List;
 
 public interface RepairOrderRepository extends JpaRepository<RepairOrder, Long> {
-    // 新增这把高级铁镐：通过宿舍号包含的关键字进行模糊查找 (相当于 SQL 里的 LIKE '%keyword%')
     List<RepairOrder> findByRoomNumberContaining(String keyword);
+    List<RepairOrder> findByStatus(String status);
+    List<RepairOrder> findByStudentNameContainingOrRoomNumberContaining(String name, String room);
+
+    @Query("SELECT r.status, COUNT(r) FROM RepairOrder r GROUP BY r.status")
+    List<Object[]> countByStatus();
+
+    @Query("SELECT r.repairType, COUNT(r) FROM RepairOrder r GROUP BY r.repairType")
+    List<Object[]> countByType();
+
+    @Query("SELECT r.priority, COUNT(r) FROM RepairOrder r GROUP BY r.priority")
+    List<Object[]> countByPriority();
+
+    /** 按报修月份统计数量（用于趋势图） */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) FROM repair_order " +
+                   "WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH) " +
+                   "GROUP BY month ORDER BY month", nativeQuery = true)
+    List<Object[]> countByMonth();
 }
