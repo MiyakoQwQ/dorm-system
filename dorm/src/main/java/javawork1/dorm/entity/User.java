@@ -3,7 +3,7 @@ package javawork1.dorm.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "system_user") // 不能用 user 作为表名，这是数据库的系统保留字，会引发底层崩溃
+@Table(name = "users") // 使用 users 避免 H2 保留关键字问题
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

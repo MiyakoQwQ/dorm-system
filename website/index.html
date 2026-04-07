@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宿舍管理系统</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🏠 宿舍管理系统</div>
+        <ul class="nav-links">
+            <li><a href="#home">首页</a></li>
+            <li><a href="#features">功能</a></li>
+            <li><a href="#preview">预览</a></li>
+            <li><a href="#api">API</a></li>
+        </ul>
+    </nav>
+
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h1>宿舍管理系统</h1>
+            <p class="subtitle">基于 Spring Boot + JavaFX 的全功能宿舍管理解决方案</p>
+            <div class="tech-stack">
+                <span class="tag">Spring Boot</span>
+                <span class="tag">JavaFX</span>
+                <span class="tag">JPA</span>
+                <span class="tag">H2/MySQL</span>
+            </div>
+            <div class="hero-buttons">
+                <a href="#preview" class="btn btn-primary">查看预览</a>
+                <a href="https://github.com" class="btn btn-secondary" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <h2>核心功能</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="icon">📊</div>
+                <h3>指挥中心</h3>
+                <p>仪表盘展示学生、宿舍、报修统计数据，图表可视化</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔧</div>
+                <h3>维修管理</h3>
+                <p>完整报修流程：提交→受理→处理→完结/驳回</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🏠</div>
+                <h3>宿舍管理</h3>
+                <p>楼栋、房间、床位管理，入住状态实时更新</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">👨‍🎓</div>
+                <h3>学生管理</h3>
+                <p>学生信息CRUD，院系专业分类，宿舍分配</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📢</div>
+                <h3>通知公告</h3>
+                <p>紧急/通知/公告分类发布，状态管理</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📈</div>
+                <h3>数据分析</h3>
+                <p>多维度统计报表，趋势分析，数据导出</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="preview" class="preview">
+        <h2>界面预览</h2>
+        <div class="preview-tabs">
+            <button class="tab-btn active" onclick="showTab('admin')">管理员端</button>
+            <button class="tab-btn" onclick="showTab('student')">学生端</button>
+        </div>
+        
+        <div id="admin" class="tab-content active">
+            <div class="mockup">
+                <div class="mockup-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="title">宿舍管理系统 - 管理员</span>
+                </div>
+                <div class="mockup-body">
+                    <div class="sidebar">
+                        <div class="logo">🏠 DormMS</div>
+                        <ul class="menu">
+                            <li class="active">📊 指挥中心</li>
+                            <li>🔧 维修管理</li>
+                            <li>🏠 宿舍管理</li>
+                            <li>👨‍🎓 学生管理</li>
+                            <li>📢 通知中心</li>
+                            <li>📈 数据分析</li>
+                        </ul>
+                    </div>
+                    <div class="main-content">
+                        <div class="stats-row">
+                            <div class="stat-card">
+                                <div class="stat-number">156</div>
+                                <div class="stat-label">学生总数</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">48</div>
+                                <div class="stat-label">宿舍总数</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">12</div>
+                                <div class="stat-label">待处理报修</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">89%</div>
+                                <div class="stat-label">入住率</div>
+                            </div>
+                        </div>
+                        <div class="chart-placeholder">
+                            <div class="chart-title">📊 报修类型分布</div>
+                            <div class="pie-chart">
+                                <div class="slice slice-1"></div>
+                                <div class="slice slice-2"></div>
+                                <div class="slice slice-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="student" class="tab-content">
+            <div class="mockup">
+                <div class="mockup-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="title">宿舍管理系统 - 学生端</span>
+                </div>
+                <div class="mockup-body">
+                    <div class="sidebar student">
+                        <div class="logo">🏠 DormMS</div>
+                        <ul class="menu">
+                            <li class="active">🏠 我的首页</li>
+                            <li>🔧 我要报修</li>
+                            <li>📰 通知公告</li>
+                            <li>👤 个人资料</li>
+                        </ul>
+                    </div>
+                    <div class="main-content">
+                        <div class="welcome-card">
+                            <h3>👋 欢迎回来，张三</h3>
+                            <p>宿舍：一号楼 101 室 | 床位：A</p>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="action-btn primary">🔧 提交报修</button>
+                            <button class="action-btn">📰 查看公告</button>
+                        </div>
+                        <div class="repair-list">
+                            <h4>我的报修记录</h4>
+                            <div class="repair-item">
+                                <span class="status resolved">已完结</span>
+                                <span>水龙头漏水</span>
+                                <span class="date">2026-03-28</span>
+                            </div>
+                            <div class="repair-item">
+                                <span class="status processing">处理中</span>
+                                <span>电灯不亮</span>
+                                <span class="date">2026-04-01</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="api" class="api-section">
+        <h2>API 接口</h2>
+        <div class="api-grid">
+            <div class="api-card">
+                <h3>🔐 用户认证</h3>
+                <code>POST /api/users/login</code>
+                <code>POST /api/users/register</code>
+                <p>支持 BCrypt 加密，角色权限隔离</p>
+            </div>
+            <div class="api-card">
+                <h3>🔧 报修管理</h3>
+                <code>GET /api/orders</code>
+                <code>POST /api/orders</code>
+                <code>PUT /api/orders/{id}/resolve</code>
+                <p>完整工单生命周期管理</p>
+            </div>
+            <div class="api-card">
+                <h3>🏠 宿舍管理</h3>
+                <code>GET /api/rooms</code>
+                <code>POST /api/rooms</code>
+                <code>GET /api/rooms/stats</code>
+                <p>宿舍资源管理与统计</p>
+            </div>
+            <div class="api-card">
+                <h3>👨‍🎓 学生管理</h3>
+                <code>GET /api/students</code>
+                <code>POST /api/students</code>
+                <code>GET /api/students/stats/department</code>
+                <p>学生信息与院系统计</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="account-section">
+        <h2>测试账号</h2>
+        <div class="account-cards">
+            <div class="account-card admin">
+                <div class="role-badge">管理员</div>
+                <div class="account-info">
+                    <p><strong>账号：</strong>admin</p>
+                    <p><strong>密码：</strong>123456</p>
+                </div>
+                <p class="desc">拥有所有管理权限</p>
+            </div>
+            <div class="account-card student">
+                <div class="role-badge">学生</div>
+                <div class="account-info">
+                    <p><strong>账号：</strong>student</p>
+                    <p><strong>密码：</strong>123456</p>
+                </div>
+                <p class="desc">报修、查看公告</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2026 宿舍管理系统课程设计版 | Spring Boot + JavaFX</p>
+    </footer>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

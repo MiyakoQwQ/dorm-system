@@ -3,6 +3,7 @@ package javawork1.dorm.client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -35,12 +36,26 @@ import java.util.*;
 public class DormClientApp extends Application {
     private static final String SERVER_URL = "http://localhost:8080";
     private Stage window;
-    private ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private String currentUserRole = "";
     private Long currentUserId = null;
     private String currentUsername = "";
     private TabPane mainTabPane;
     private StudentInfo currentStudentInfo;
+    
+    // 仪表盘统计卡片引用
+    private Label studentsCountLabel;
+    private Label roomsCountLabel;
+    private Label pendingCountLabel;
+    private Label resolvedCountLabel;
+    
+    // 学生管理表格引用（用于导入后刷新）
+    @SuppressWarnings("rawtypes")
+    private TableView studentTableRef;
+    
+    // 公告管理表格引用（用于仪表盘发布后刷新）
+    @SuppressWarnings("rawtypes")
+    private TableView announcementTableRef;
 
     @Override
     public void start(Stage primaryStage) {
@@ -48,108 +63,72 @@ public class DormClientApp extends Application {
         showSplashScreen();
     }
 
-    // ========== 启动界面（加载动画 + logo） ==========
+    // ========== 启动界面 ==========
     private void showSplashScreen() {
         VBox splash = new VBox(20);
         splash.setAlignment(Pos.CENTER);
         splash.setPadding(new Insets(50));
-        splash.setStyle("-fx-background-color: linear-gradient(to bottom, #2196F3, #1976D2);");
-
-        // Logo 区域
-        HBox logoBox = new HBox(15);
-        logoBox.setAlignment(Pos.CENTER);
-        Rectangle logoRect = new Rectangle(60, 60, Color.WHITE);
-        logoRect.setArcWidth(15);
-        logoRect.setArcHeight(15);
-        Label logoText = new Label("DSMS");
-        logoText.setFont(Font.font("Arial", FontWeight.BOLD, 28));
-        logoText.setTextFill(Color.WHITE);
-        logoBox.getChildren().addAll(logoRect, logoText);
+        splash.setStyle("-fx-background-color: #f0f0f0;");
 
         // 系统标题
-        Label title = new Label("Dormitory System Management Suite");
-        title.setFont(Font.font("Arial", 18));
-        title.setTextFill(Color.WHITE);
+        Label title = new Label("宿舍管理系统");
+        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 24));
 
         // 进度条
         ProgressIndicator progress = new ProgressIndicator();
-        progress.setPrefSize(40, 40);
+        progress.setPrefSize(30, 30);
 
-        splash.getChildren().addAll(logoBox, title, progress);
-        Scene scene = new Scene(splash, 600, 400);
+        splash.getChildren().addAll(title, progress);
+        Scene scene = new Scene(splash, 400, 200);
         window.setScene(scene);
         window.setTitle("宿舍管理系统 - 启动中...");
         window.show();
 
-        // 2秒后跳转登录
+        // 1秒后跳转登录
         new Thread(() -> {
-            try { Thread.sleep(2000); } catch (InterruptedException e) {}
+            try { Thread.sleep(1000); } catch (InterruptedException e) {}
             javafx.application.Platform.runLater(this::showLoginScreen);
         }).start();
     }
 
     // ========== 登录界面 ==========
     private void showLoginScreen() {
-        VBox loginRoot = new VBox(20);
-        loginRoot.setPadding(new Insets(40, 60, 40, 60));
+        VBox loginRoot = new VBox(15);
+        loginRoot.setPadding(new Insets(30));
         loginRoot.setAlignment(Pos.CENTER);
-        loginRoot.setStyle("-fx-background-color: #F5F7FA;");
+        loginRoot.setStyle("-fx-background-color: #e8e8e8;");
 
-        // 标题栏
-        HBox titleBar = new HBox(10);
-        titleBar.setAlignment(Pos.CENTER_LEFT);
-        Rectangle smallRect = new Rectangle(8, 35, Color.web("#2196F3"));
+        // 标题
         Label title = new Label("宿舍管理系统");
-        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 24));
-        title.setTextFill(Color.web("#333333"));
-        titleBar.getChildren().addAll(smallRect, title);
+        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 20));
 
-        // 卡片面板
-        VBox card = new VBox(25);
-        card.setPadding(new Insets(40));
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-border-radius: 12; " +
-                      "-fx-border-color: #E0E0E0; -fx-border-width: 1;");
-        card.setMaxWidth(380);
+        // 登录面板
+        VBox panel = new VBox(15);
+        panel.setPadding(new Insets(25));
+        panel.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        panel.setMaxWidth(300);
 
-        Label loginTitle = new Label("系统登录");
-        loginTitle.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 22));
-        loginTitle.setTextFill(Color.web("#2196F3"));
+        Label loginTitle = new Label("用户登录");
+        loginTitle.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 16));
 
         TextField userField = new TextField();
-        userField.setPromptText("请输入账号");
-        userField.setPrefHeight(40);
-        userField.setStyle("-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #DDD;");
+        userField.setPromptText("账号");
 
         PasswordField passField = new PasswordField();
-        passField.setPromptText("请输入密码");
-        passField.setPrefHeight(40);
-        passField.setStyle("-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #DDD;");
+        passField.setPromptText("密码");
 
-        HBox buttonRow = new HBox(15);
+        HBox buttonRow = new HBox(10);
         buttonRow.setAlignment(Pos.CENTER);
-        Button loginBtn = new Button("登 录");
-        loginBtn.setPrefSize(120, 45);
-        loginBtn.setStyle("-fx-background-color: #2196F3; -fx-background-radius: 6; -fx-text-fill: white; " +
-                          "-fx-font-size: 16; -fx-font-weight: bold;");
-        Button registerBtn = new Button("注册账号");
-        registerBtn.setPrefSize(120, 45);
-        registerBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #2196F3; -fx-border-radius: 6; " +
-                            "-fx-border-width: 2; -fx-text-fill: #2196F3; -fx-font-size: 16;");
+        Button loginBtn = new Button("登录");
+        Button registerBtn = new Button("注册");
         buttonRow.getChildren().addAll(loginBtn, registerBtn);
 
         Label msgLabel = new Label();
-        msgLabel.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
+        msgLabel.setStyle("-fx-text-fill: red;");
 
-        card.getChildren().addAll(loginTitle, userField, passField, buttonRow, msgLabel);
+        panel.getChildren().addAll(loginTitle, userField, passField, buttonRow, msgLabel);
 
-        // 底部信息
-        HBox footer = new HBox();
-        footer.setAlignment(Pos.CENTER);
-        Label footerText = new Label("© 2026 宿舍管理系统 v2.0 | 技术支持");
-        footerText.setStyle("-fx-text-fill: #777; -fx-font-size: 13;");
-        footer.getChildren().add(footerText);
-
-        loginRoot.getChildren().addAll(titleBar, card, footer);
+        loginRoot.getChildren().addAll(title, panel);
 
         // ===== 事件处理 =====
         loginBtn.setOnAction(e -> {
@@ -233,57 +212,47 @@ public class DormClientApp extends Application {
         showMainWorkspace();
     }
 
-    // ========== 主工作区（多Tab架构） ==========
+    // ========== 主工作区 ==========
     private void showMainWorkspace() {
         BorderPane root = new BorderPane();
-        root.setStyle("-fx-background-color: #F5F7FA;");
+        root.setStyle("-fx-background-color: #f5f5f5;");
 
         // ===== 顶部标题栏 =====
         HBox topBar = new HBox(15);
-        topBar.setPadding(new Insets(15, 25, 15, 25));
-        topBar.setStyle("-fx-background-color: white; -fx-background-radius: 0 0 12 12;");
+        topBar.setPadding(new Insets(10, 20, 10, 20));
+        topBar.setStyle("-fx-background-color: #e0e0e0;");
         HBox.setHgrow(topBar, Priority.ALWAYS);
 
-        // Logo 和标题
-        HBox titleGroup = new HBox(10);
-        titleGroup.setAlignment(Pos.CENTER_LEFT);
-        Rectangle logo = new Rectangle(6, 30, Color.web("#1976D2"));
+        // 标题
         Label appTitle = new Label("宿舍管理系统");
-        appTitle.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 22));
-        appTitle.setTextFill(Color.web("#333"));
-        titleGroup.getChildren().addAll(logo, appTitle);
+        appTitle.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 16));
 
         // 用户信息
         HBox userGroup = new HBox(10);
         userGroup.setAlignment(Pos.CENTER_RIGHT);
-        Label welcome = new Label("欢迎您，" + (currentStudentInfo != null ? currentStudentInfo.getRealName() : "管理员"));
-        welcome.setStyle("-fx-text-fill: #666; -fx-font-size: 14;");
-        Label roleBadge = new Label(currentUserRole);
-        roleBadge.setPadding(new Insets(4, 12, 4, 12));
-        roleBadge.setStyle("-fx-background-color: " + ("ADMIN".equals(currentUserRole) ? "#FF9800" : "#4CAF50") + 
-                          "; -fx-background-radius: 12; -fx-text-fill: white; -fx-font-size: 12;");
-        Button logoutBtn = new Button("退出登录");
-        logoutBtn.setStyle("-fx-background-color: #F44336; -fx-background-radius: 6; -fx-text-fill: white;");
+        Label welcome = new Label("欢迎：" + (currentStudentInfo != null ? currentStudentInfo.getRealName() : "管理员"));
+        Label roleLabel = new Label("[" + ("ADMIN".equals(currentUserRole) ? "管理员" : "学生") + "]");
+        Button logoutBtn = new Button("退出");
         logoutBtn.setOnAction(e -> {
             currentUserRole = "";
             currentUserId = null;
             currentStudentInfo = null;
             showLoginScreen();
         });
-        userGroup.getChildren().addAll(welcome, roleBadge, logoutBtn);
+        userGroup.getChildren().addAll(welcome, roleLabel, logoutBtn);
 
-        topBar.getChildren().addAll(titleGroup, new Region(), userGroup);
+        topBar.getChildren().addAll(appTitle, new Region(), userGroup);
         root.setTop(topBar);
 
         // ===== 左侧导航 =====
-        VBox sidebar = new VBox(5);
-        sidebar.setPrefWidth(200);
-        sidebar.setPadding(new Insets(20, 0, 20, 0));
-        sidebar.setStyle("-fx-background-color: white; -fx-background-radius: 12 0 0 12;");
+        VBox sidebar = new VBox(3);
+        sidebar.setPrefWidth(150);
+        sidebar.setPadding(new Insets(10));
+        sidebar.setStyle("-fx-background-color: #e8e8e8;");
 
-        Label navTitle = new Label("功能导航");
-        navTitle.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 16));
-        navTitle.setPadding(new Insets(0, 0, 15, 25));
+        Label navTitle = new Label("功能菜单");
+        navTitle.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 14));
+        navTitle.setPadding(new Insets(0, 0, 10, 5));
         sidebar.getChildren().add(navTitle);
 
         String[] adminTabs = {"仪表盘", "报修管理", "宿舍管理", "学生管理", "公告管理", "系统统计"};
@@ -292,27 +261,16 @@ public class DormClientApp extends Application {
         String[] tabs = "ADMIN".equals(currentUserRole) ? adminTabs : studentTabs;
         for (int i = 0; i < tabs.length; i++) {
             Button navBtn = new Button(tabs[i]);
-            navBtn.setPrefWidth(180);
-            navBtn.setPrefHeight(45);
+            navBtn.setPrefWidth(130);
             navBtn.setAlignment(Pos.CENTER_LEFT);
-            navBtn.setGraphicTextGap(15);
-            int tabIndex = i + 1; // 0是空Tab
+            int tabIndex = i + 1;
             navBtn.setOnAction(e -> {
                 if (tabIndex < mainTabPane.getTabs().size()) {
                     mainTabPane.getSelectionModel().select(tabIndex);
                 }
             });
-            String baseStyle = "-fx-background-color: transparent; -fx-border-radius: 6; -fx-border-width: 0; " +
-                               "-fx-font-size: 14; -fx-text-fill: #555; -fx-font-weight: normal;";
-            String hoverStyle = "-fx-background-color: #F0F7FF; -fx-text-fill: #1976D2;";
-            navBtn.setStyle(baseStyle);
-            navBtn.setOnMouseEntered(e -> navBtn.setStyle(baseStyle + hoverStyle));
-            navBtn.setOnMouseExited(e -> navBtn.setStyle(baseStyle));
             sidebar.getChildren().add(navBtn);
         }
-
-        sidebar.getChildren().add(new Region());
-        sidebar.getChildren().add(new Label("v2.0.0"));
 
         root.setLeft(sidebar);
 
@@ -329,43 +287,43 @@ public class DormClientApp extends Application {
 
         // 根据角色添加功能Tab
         if ("ADMIN".equals(currentUserRole)) {
-            Tab dashboardTab = new Tab("📊 指挥中心");
+            Tab dashboardTab = new Tab("仪表盘");
             dashboardTab.setContent(buildDashboardPane());
             mainTabPane.getTabs().add(dashboardTab);
 
-            Tab orderTab = new Tab("🔧 维修管理");
+            Tab orderTab = new Tab("报修管理");
             orderTab.setContent(buildOrderManagementPane());
             mainTabPane.getTabs().add(orderTab);
 
-            Tab dormTab = new Tab("🏠 宿舍管理");
+            Tab dormTab = new Tab("宿舍管理");
             dormTab.setContent(buildDormManagementPane());
             mainTabPane.getTabs().add(dormTab);
 
-            Tab studentTab = new Tab("👨‍🎓 学生管理");
+            Tab studentTab = new Tab("学生管理");
             studentTab.setContent(buildStudentManagementPane());
             mainTabPane.getTabs().add(studentTab);
 
-            Tab announcementTab = new Tab("📢 通知中心");
+            Tab announcementTab = new Tab("公告管理");
             announcementTab.setContent(buildAnnouncementPane());
             mainTabPane.getTabs().add(announcementTab);
 
-            Tab statsTab = new Tab("📈 数据分析");
+            Tab statsTab = new Tab("数据统计");
             statsTab.setContent(buildStatsPane());
             mainTabPane.getTabs().add(statsTab);
         } else {
-            Tab studentHomeTab = new Tab("🏠 我的首页");
+            Tab studentHomeTab = new Tab("我的首页");
             studentHomeTab.setContent(buildStudentHomePane());
             mainTabPane.getTabs().add(studentHomeTab);
 
-            Tab repairTab = new Tab("🔧 我要报修");
+            Tab repairTab = new Tab("我要报修");
             repairTab.setContent(buildStudentRepairPane());
             mainTabPane.getTabs().add(repairTab);
 
-            Tab noticeTab = new Tab("📰 通知公告");
+            Tab noticeTab = new Tab("通知公告");
             noticeTab.setContent(buildStudentNoticePane());
             mainTabPane.getTabs().add(noticeTab);
 
-            Tab profileTab = new Tab("👤 个人资料");
+            Tab profileTab = new Tab("个人资料");
             profileTab.setContent(buildStudentProfilePane());
             mainTabPane.getTabs().add(profileTab);
         }
@@ -383,89 +341,81 @@ public class DormClientApp extends Application {
     // 1. 管理员仪表盘
     private Pane buildDashboardPane() {
         BorderPane pane = new BorderPane();
-        pane.setPadding(new Insets(25));
+        pane.setPadding(new Insets(15));
 
-        // 顶部卡片
-        HBox topCards = new HBox(20);
-        topCards.setPadding(new Insets(0, 0, 30, 0));
+        // 顶部统计
+        HBox topStats = new HBox(15);
+        topStats.setPadding(new Insets(0, 0, 15, 0));
 
-        String[][] cardData = {
-            {"👨‍🎓 学生总数", "#4CAF50", "studentsCard"},
-            {"🏠 宿舍总数", "#2196F3", "roomsCard"},
-            {"🔧 待处理报修", "#FF9800", "pendingCard"},
-            {"📊 已解决报修", "#9C27B0", "resolvedCard"}
-        };
+        // 创建统计卡片并保存引用
+        studentsCountLabel = createStatCard(topStats, "学生总数", "0");
+        roomsCountLabel = createStatCard(topStats, "宿舍总数", "0");
+        pendingCountLabel = createStatCard(topStats, "待处理报修", "0");
+        resolvedCountLabel = createStatCard(topStats, "已解决报修", "0");
+        pane.setTop(topStats);
 
-        for (String[] data : cardData) {
-            VBox card = createCard(data[0], data[1], "0");
-            card.setId(data[2]);
-            topCards.getChildren().add(card);
-        }
-        pane.setTop(topCards);
-
-        // 左右布局
-        HBox bottomArea = new HBox(20);
-        bottomArea.setPadding(new Insets(20, 0, 0, 0));
-
-        // 左：报表图表
-        VBox chartSection = new VBox(15);
-        chartSection.setPrefWidth(580);
-        chartSection.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20;");
-
-        Label chartTitle = new Label("报修类型分布");
-        chartTitle.setFont(Font.font(16));
+        // 图表区域
+        HBox chartArea = new HBox(15);
+        
+        VBox leftChart = new VBox(10);
+        leftChart.setStyle("-fx-background-color: white; -fx-padding: 15;");
+        leftChart.setPrefWidth(400);
+        leftChart.getChildren().add(new Label("报修类型分布"));
         PieChart typeChart = new PieChart();
-        typeChart.setId("typeChart");
+        leftChart.getChildren().add(typeChart);
 
-        Label chartTitle2 = new Label("报修状态趋势");
-        chartTitle2.setFont(Font.font(16));
-        LineChart<String, Number> trendChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
-        trendChart.setId("trendChart");
-        trendChart.setPrefHeight(250);
-
-        chartSection.getChildren().addAll(chartTitle, typeChart, chartTitle2, trendChart);
-
-        // 右：快捷操作 + 通知列表
-        VBox rightSection = new VBox(20);
-        rightSection.setPrefWidth(560);
-
-        VBox quickActions = new VBox(15);
-        quickActions.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20;");
-        quickActions.getChildren().add(new Label("⚡ 快捷操作"));
-        String[] actions = {"🆕 新增宿舍", "👥 批量导入学生", "📊 生成月报表", "🔔 发布通知"};
+        VBox rightSection = new VBox(15);
+        rightSection.setPrefWidth(400);
+        
+        VBox quickBox = new VBox(10);
+        quickBox.setStyle("-fx-background-color: white; -fx-padding: 15;");
+        quickBox.getChildren().add(new Label("快捷操作"));
+        String[] actions = {"新增宿舍", "导入学生", "生成报表", "发布公告"};
         for (String act : actions) {
             Button btn = new Button(act);
-            btn.setPrefWidth(200);
-            btn.setAlignment(Pos.CENTER_LEFT);
-            quickActions.getChildren().add(btn);
+            btn.setOnAction(e -> {
+                switch (act) {
+                    case "新增宿舍":
+                        showDormRoomDialog(null, null);
+                        break;
+                    case "导入学生":
+                        showImportStudentDialog();
+                        break;
+                    case "生成报表":
+                        showGenerateReportDialog();
+                        break;
+                    case "发布公告":
+                        // 从仪表盘发布公告，保存后提示用户手动刷新公告管理页面
+                        showAnnouncementDialog(null, null, true);
+                        break;
+                }
+            });
+            quickBox.getChildren().add(btn);
         }
-
-        VBox recentOrders = new VBox(15);
-        recentOrders.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20;");
-        recentOrders.getChildren().add(new Label("📋 最新报修单"));
+        
+        VBox recentBox = new VBox(10);
+        recentBox.setStyle("-fx-background-color: white; -fx-padding: 15;");
+        recentBox.getChildren().add(new Label("最新报修"));
         TableView<RepairOrder> recentTable = new TableView<>();
-        recentTable.setId("recentOrdersTable");
-        recentTable.setPrefHeight(180);
-        recentOrders.getChildren().add(recentTable);
+        recentTable.setPrefHeight(150);
+        recentBox.getChildren().add(recentTable);
+        
+        rightSection.getChildren().addAll(quickBox, recentBox);
+        chartArea.getChildren().addAll(leftChart, rightSection);
+        pane.setCenter(chartArea);
 
-        rightSection.getChildren().addAll(quickActions, recentOrders);
-        bottomArea.getChildren().addAll(chartSection, rightSection);
-        pane.setCenter(bottomArea);
-
-        // 加载实时数据
         new Thread(this::loadDashboardData).start();
-
         return pane;
     }
 
     // 2. 报修管理
     private Pane buildOrderManagementPane() {
         BorderPane pane = new BorderPane();
-        pane.setPadding(new Insets(20));
+        pane.setPadding(new Insets(15));
 
-        // 顶部工具栏
-        HBox toolbar = new HBox(15);
-        toolbar.setPadding(new Insets(0, 0, 20, 0));
+        // 工具栏
+        HBox toolbar = new HBox(10);
+        toolbar.setPadding(new Insets(0, 0, 10, 0));
 
         ComboBox<String> statusFilter = new ComboBox<>();
         statusFilter.getItems().addAll("全部", "待处理", "处理中", "已解决", "已驳回");
@@ -473,19 +423,18 @@ public class DormClientApp extends Application {
 
         TextField searchField = new TextField();
         searchField.setPromptText("搜索宿舍号/姓名");
-        searchField.setPrefWidth(180);
+        searchField.setPrefWidth(150);
 
-        Button searchBtn = new Button("🔍 搜索");
-        Button refreshBtn = new Button("🔄 刷新");
-        Button exportBtn = new Button("📄 导出报表");
+        Button searchBtn = new Button("搜索");
+        Button refreshBtn = new Button("刷新");
 
         toolbar.getChildren().addAll(
-            new Label("状态过滤:"), statusFilter,
-            new Label("关键词:"), searchField, searchBtn, refreshBtn, exportBtn
+            new Label("状态:"), statusFilter,
+            new Label("搜索:"), searchField, searchBtn, refreshBtn
         );
         pane.setTop(toolbar);
 
-        // 中间表格
+        // 表格
         TableView<RepairOrder> table = new TableView<>();
         table.setId("orderTable");
 
@@ -495,10 +444,8 @@ public class DormClientApp extends Application {
         nameCol.setCellValueFactory(new PropertyValueFactory<>("studentName"));
         TableColumn<RepairOrder, String> roomCol = new TableColumn<>("宿舍号");
         roomCol.setCellValueFactory(new PropertyValueFactory<>("roomNumber"));
-        TableColumn<RepairOrder, String> typeCol = new TableColumn<>("报修类型");
+        TableColumn<RepairOrder, String> typeCol = new TableColumn<>("类型");
         typeCol.setCellValueFactory(new PropertyValueFactory<>("repairType"));
-        TableColumn<RepairOrder, String> priorityCol = new TableColumn<>("优先级");
-        priorityCol.setCellValueFactory(new PropertyValueFactory<>("priority"));
         TableColumn<RepairOrder, String> statusCol = new TableColumn<>("状态");
         statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
         TableColumn<RepairOrder, String> timeCol = new TableColumn<>("提交时间");
@@ -509,21 +456,20 @@ public class DormClientApp extends Application {
             );
         });
 
-        table.getColumns().addAll(idCol, nameCol, roomCol, typeCol, priorityCol, statusCol, timeCol);
+        table.getColumns().addAll(idCol, nameCol, roomCol, typeCol, statusCol, timeCol);
         pane.setCenter(table);
 
-        // 底部操作区
+        // 操作区
         HBox actionBar = new HBox(10);
-        actionBar.setPadding(new Insets(20, 0, 0, 0));
-        Button acceptBtn = new Button("✅ 受理");
-        Button resolveBtn = new Button("✔ 完结");
-        Button rejectBtn = new Button("❌ 驳回");
-        Button remarkBtn = new Button("📝 批注");
+        actionBar.setPadding(new Insets(10, 0, 0, 0));
+        Button acceptBtn = new Button("受理");
+        Button resolveBtn = new Button("完结");
+        Button rejectBtn = new Button("驳回");
         TextArea remarkArea = new TextArea();
-        remarkArea.setPromptText("处理意见...");
+        remarkArea.setPromptText("处理意见");
         remarkArea.setPrefRowCount(2);
-        actionBar.getChildren().addAll(acceptBtn, resolveBtn, rejectBtn, new Label("批注:"), remarkArea, remarkBtn);
-        pane.setBottom(actionBar);
+        remarkArea.setPrefWidth(200);
+        actionBar.getChildren().addAll(acceptBtn, resolveBtn, rejectBtn, new Label("备注:"), remarkArea);
 
         // 事件绑定
         refreshBtn.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
@@ -531,14 +477,14 @@ public class DormClientApp extends Application {
         statusFilter.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
 
         acceptBtn.setOnAction(e -> {
-            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
             postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/accept", null);
             loadOrders(table, statusFilter.getValue(), searchField.getText());
         });
 
         resolveBtn.setOnAction(e -> {
-            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
             postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/resolve",
                     "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
@@ -546,20 +492,11 @@ public class DormClientApp extends Application {
         });
 
         rejectBtn.setOnAction(e -> {
-            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
+            RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
             postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/reject",
                     "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
             loadOrders(table, statusFilter.getValue(), searchField.getText());
-        });
-
-        remarkBtn.setOnAction(e -> {
-            RepairOrder selected = (RepairOrder) table.getSelectionModel().getSelectedItem();
-            if (selected == null) { showAlert("请先选择一条报修单"); return; }
-            if (remarkArea.getText().isEmpty()) { showAlert("请填写批注内容"); return; }
-            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/remark",
-                    "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
-            showAlert("批注已保存");
         });
 
         // 初始加载
@@ -570,29 +507,23 @@ public class DormClientApp extends Application {
 
     // 3. 宿舍管理
     private Pane buildDormManagementPane() {
-        // 实现宿舍CRUD
         BorderPane pane = new BorderPane();
-        pane.setPadding(new Insets(20));
+        pane.setPadding(new Insets(15));
 
-        HBox toolbar = new HBox(15);
-        toolbar.setPadding(new Insets(0, 0, 20, 0));
+        HBox toolbar = new HBox(10);
+        toolbar.setPadding(new Insets(0, 0, 10, 0));
 
         ComboBox<String> buildingFilter = new ComboBox<>();
         buildingFilter.getItems().addAll("全部楼栋", "一号楼", "二号楼", "三号楼");
         buildingFilter.setValue("全部楼栋");
 
-        ComboBox<String> statusFilter = new ComboBox<>();
-        statusFilter.getItems().addAll("全部状态", "Normal", "Maintenance", "Closed");
-        statusFilter.setValue("全部状态");
-
-        Button addBtn = new Button("🆕 新增宿舍");
-        Button editBtn = new Button("✏ 编辑");
-        Button deleteBtn = new Button("🗑 删除");
-        Button refreshBtn = new Button("🔄 刷新");
+        Button addBtn = new Button("新增");
+        Button editBtn = new Button("编辑");
+        Button deleteBtn = new Button("删除");
+        Button refreshBtn = new Button("刷新");
 
         toolbar.getChildren().addAll(
             new Label("楼栋:"), buildingFilter,
-            new Label("状态:"), statusFilter,
             addBtn, editBtn, deleteBtn, refreshBtn
         );
         pane.setTop(toolbar);
@@ -619,26 +550,25 @@ public class DormClientApp extends Application {
         table.getColumns().addAll(idCol, buildingCol, roomCol, floorCol, typeCol, capacityCol, currentCol, statusCol);
         pane.setCenter(table);
 
-        refreshBtn.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue()));
-        buildingFilter.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue()));
-        statusFilter.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue()));
+        refreshBtn.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), ""));
+        buildingFilter.setOnAction(e -> loadDormRooms(table, buildingFilter.getValue(), ""));
 
         addBtn.setOnAction(e -> showDormRoomDialog(null, table));
 
         editBtn.setOnAction(e -> {
-            DormRoom selected = (DormRoom) table.getSelectionModel().getSelectedItem();
+            DormRoom selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条宿舍记录"); return; }
             showDormRoomDialog(selected, table);
         });
 
         deleteBtn.setOnAction(e -> {
-            DormRoom selected = (DormRoom) table.getSelectionModel().getSelectedItem();
+            DormRoom selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择要删除的宿舍"); return; }
             deleteAction(SERVER_URL + "/api/rooms/" + selected.getId());
-            loadDormRooms(table, buildingFilter.getValue(), statusFilter.getValue());
+            loadDormRooms(table, buildingFilter.getValue(), "");
         });
 
-        loadDormRooms(table, "全部楼栋", "全部状态");
+        loadDormRooms(table, "全部楼栋", "");
 
         return pane;
     }
@@ -646,41 +576,97 @@ public class DormClientApp extends Application {
     // 4. 学生管理
     private Pane buildStudentManagementPane() {
         BorderPane pane = new BorderPane();
-        pane.setPadding(new Insets(20));
+        pane.setPadding(new Insets(15));
 
         // 工具栏
-        HBox toolbar = new HBox(15);
+        HBox toolbar = new HBox(10);
         TextField searchField = new TextField();
         searchField.setPromptText("搜索学号/姓名/宿舍");
-        Button searchBtn = new Button("🔍 搜索");
-        Button importBtn = new Button("📥 批量导入");
-        Button exportBtn = new Button("📤 导出");
-        Button addBtn = new Button("➕ 新增学生");
-        toolbar.getChildren().addAll(searchField, searchBtn, new Separator(), importBtn, exportBtn, addBtn);
+        searchField.setPrefWidth(150);
+        Button searchBtn = new Button("搜索");
+        Button refreshBtn = new Button("刷新");
+        Button addBtn = new Button("新增");
+        Button editBtn = new Button("编辑");
+        Button deleteBtn = new Button("删除");
+        toolbar.getChildren().addAll(new Label("搜索:"), searchField, searchBtn, refreshBtn, addBtn, editBtn, deleteBtn);
         pane.setTop(toolbar);
 
         TableView<StudentInfo> table = new TableView<>();
+        
+        // 使用自定义cellValueFactory确保数据正确显示
         TableColumn<StudentInfo, String> noCol = new TableColumn<>("学号");
-        noCol.setCellValueFactory(new PropertyValueFactory<>("studentNo"));
+        noCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getStudentNo() : ""));
+        
         TableColumn<StudentInfo, String> nameCol = new TableColumn<>("姓名");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("realName"));
+        nameCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getRealName() : ""));
+        
         TableColumn<StudentInfo, String> genderCol = new TableColumn<>("性别");
-        genderCol.setCellValueFactory(new PropertyValueFactory<>("gender"));
+        genderCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getGender() : ""));
+        
         TableColumn<StudentInfo, String> deptCol = new TableColumn<>("院系");
-        deptCol.setCellValueFactory(new PropertyValueFactory<>("department"));
+        deptCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getDepartment() : ""));
+        
         TableColumn<StudentInfo, String> majorCol = new TableColumn<>("专业");
-        majorCol.setCellValueFactory(new PropertyValueFactory<>("major"));
+        majorCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getMajor() : ""));
+        
         TableColumn<StudentInfo, String> roomCol = new TableColumn<>("宿舍");
-        roomCol.setCellValueFactory(new PropertyValueFactory<>("roomNumber"));
-        TableColumn<StudentInfo, Integer> bedCol = new TableColumn<>("床位");
-        bedCol.setCellValueFactory(new PropertyValueFactory<>("bedNumber"));
+        roomCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getRoomNumber() : ""));
+        
+        TableColumn<StudentInfo, String> bedCol = new TableColumn<>("床位");
+        bedCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null && cell.getValue().getBedNumber() != null 
+                ? String.valueOf(cell.getValue().getBedNumber()) : ""));
+        
         TableColumn<StudentInfo, String> statusCol = new TableColumn<>("状态");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+        statusCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> {
+                if (cell.getValue() == null) return "";
+                String status = cell.getValue().getStatus();
+                // 统一状态显示为中文
+                if ("Active".equalsIgnoreCase(status)) return "在住";
+                return status != null ? status : "";
+            }));
 
         table.getColumns().addAll(noCol, nameCol, genderCol, deptCol, majorCol, roomCol, bedCol, statusCol);
         pane.setCenter(table);
 
         searchBtn.setOnAction(e -> loadStudents(table, searchField.getText()));
+        refreshBtn.setOnAction(e -> loadStudents(table, ""));
+        addBtn.setOnAction(e -> showStudentDialog(null, table));
+        
+        editBtn.setOnAction(e -> {
+            StudentInfo selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择要编辑的学生"); return; }
+            showStudentDialog(selected, table);
+        });
+        
+        deleteBtn.setOnAction(e -> {
+            StudentInfo selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择要删除的学生"); return; }
+            
+            // 确认对话框
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("确认删除");
+            confirm.setHeaderText("确定要删除学生 " + selected.getRealName() + " (" + selected.getStudentNo() + ") 吗？");
+            confirm.setContentText("此操作不可撤销！");
+            
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    deleteAction(SERVER_URL + "/api/students/" + selected.getId());
+                    loadStudents(table, "");
+                }
+            });
+        });
+        
+        // 保存表格引用，供导入后刷新使用
+        studentTableRef = table;
+        
         loadStudents(table, "");
 
         return pane;
@@ -689,158 +675,190 @@ public class DormClientApp extends Application {
     // 5. 公告管理
     private Pane buildAnnouncementPane() {
         BorderPane pane = new BorderPane();
-        pane.setPadding(new Insets(20));
+        pane.setPadding(new Insets(15));
 
-        HBox toolbar = new HBox(15);
-        Button newBtn = new Button("➕ 发布公告");
-        Button editBtn = new Button("✏ 编辑");
-        Button deleteBtn = new Button("🗑 删除");
-        Button archiveBtn = new Button("📁 归档");
-        toolbar.getChildren().addAll(newBtn, editBtn, deleteBtn, archiveBtn);
+        HBox toolbar = new HBox(10);
+        Button newBtn = new Button("新增");
+        Button editBtn = new Button("编辑");
+        Button deleteBtn = new Button("删除");
+        Button refreshBtn = new Button("刷新");
+        toolbar.getChildren().addAll(newBtn, editBtn, deleteBtn, refreshBtn);
         pane.setTop(toolbar);
 
         TableView<Announcement> table = new TableView<>();
-        TableColumn<Announcement, Long> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        
+        // 使用自定义cellValueFactory
+        TableColumn<Announcement, String> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null && cell.getValue().getId() != null 
+                ? String.valueOf(cell.getValue().getId()) : ""));
+        
         TableColumn<Announcement, String> titleCol = new TableColumn<>("标题");
-        titleCol.setCellValueFactory(new PropertyValueFactory<>("title"));
+        titleCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getTitle() : ""));
+        
         TableColumn<Announcement, String> typeCol = new TableColumn<>("类型");
-        typeCol.setCellValueFactory(new PropertyValueFactory<>("type"));
+        typeCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getType() : ""));
+        
         TableColumn<Announcement, String> publisherCol = new TableColumn<>("发布人");
-        publisherCol.setCellValueFactory(new PropertyValueFactory<>("publisher"));
+        publisherCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getPublisher() : ""));
+        
         TableColumn<Announcement, String> statusCol = new TableColumn<>("状态");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+        statusCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> cell.getValue() != null ? cell.getValue().getStatus() : ""));
+        
         TableColumn<Announcement, String> timeCol = new TableColumn<>("发布时间");
-        timeCol.setCellValueFactory(cell -> {
-            if (cell.getValue().getCreatedAt() == null) return null;
-            return javafx.beans.binding.Bindings.createStringBinding(() ->
-                cell.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-            );
-        });
+        timeCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> {
+                if (cell.getValue() == null || cell.getValue().getCreatedAt() == null) return "";
+                return cell.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            }));
 
         table.getColumns().addAll(idCol, titleCol, typeCol, publisherCol, statusCol, timeCol);
         pane.setCenter(table);
 
+        // 保存表格引用，供仪表盘发布后刷新使用
+        announcementTableRef = table;
+        
         newBtn.setOnAction(e -> showAnnouncementDialog(null, table));
 
         editBtn.setOnAction(e -> {
-            Announcement selected = (Announcement) table.getSelectionModel().getSelectedItem();
+            Announcement selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择要编辑的公告"); return; }
             showAnnouncementDialog(selected, table);
         });
 
         deleteBtn.setOnAction(e -> {
-            Announcement selected = (Announcement) table.getSelectionModel().getSelectedItem();
+            Announcement selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择要删除的公告"); return; }
             deleteAction(SERVER_URL + "/api/announcements/" + selected.getId());
             loadAnnouncements(table);
         });
-
-        archiveBtn.setOnAction(e -> {
-            Announcement selected = (Announcement) table.getSelectionModel().getSelectedItem();
-            if (selected == null) { showAlert("请先选择要归档的公告"); return; }
-            postAction(SERVER_URL + "/api/announcements/" + selected.getId() + "/archive", null);
-            loadAnnouncements(table);
-        });
+        
+        refreshBtn.setOnAction(e -> loadAnnouncements(table));
 
         loadAnnouncements(table);
 
         return pane;
     }
 
+    // 统计标签引用
+    private Label statsOrderCountLabel;
+    private Label statsStudentCountLabel;
+    private Label statsRoomCountLabel;
+    private PieChart statsTypePie;
+    private LineChart<String, Number> statsLineChart;
+
     // 6. 统计面板
     private Pane buildStatsPane() {
-        VBox pane = new VBox(30);
-        pane.setPadding(new Insets(30));
-        pane.setStyle("-fx-background-color: #F5F7FA;");
+        VBox pane = new VBox(20);
+        pane.setPadding(new Insets(15));
 
-        Label title = new Label("📈 系统数据统计");
-        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 24));
-        title.setTextFill(Color.web("#333"));
+        Label title = new Label("数据统计");
+        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 18));
 
-        // 卡片行
-        HBox cardRow = new HBox(20);
-        String[][] statsCards = {
-            {"报修总数", "#FF5722", "totalOrders"},
-            {"学生总数", "#4CAF50", "totalStudents"},
-            {"宿舍总数", "#2196F3", "totalRooms"},
-            {"满意度", "#FFC107", "avgRating"}
-        };
-        for (String[] card : statsCards) {
-            cardRow.getChildren().add(createCard(card[0], card[1], "--"));
-        }
+        // 统计行
+        HBox statRow = new HBox(15);
+        
+        // 报修总数
+        VBox orderBox = new VBox(5);
+        orderBox.setPadding(new Insets(15));
+        orderBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        orderBox.setPrefWidth(150);
+        Label orderNameLabel = new Label("报修总数");
+        statsOrderCountLabel = new Label("--");
+        statsOrderCountLabel.setFont(Font.font(16));
+        orderBox.getChildren().addAll(orderNameLabel, statsOrderCountLabel);
+        
+        // 学生总数
+        VBox studentBox = new VBox(5);
+        studentBox.setPadding(new Insets(15));
+        studentBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        studentBox.setPrefWidth(150);
+        Label studentNameLabel = new Label("学生总数");
+        statsStudentCountLabel = new Label("--");
+        statsStudentCountLabel.setFont(Font.font(16));
+        studentBox.getChildren().addAll(studentNameLabel, statsStudentCountLabel);
+        
+        // 宿舍总数
+        VBox roomBox = new VBox(5);
+        roomBox.setPadding(new Insets(15));
+        roomBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        roomBox.setPrefWidth(150);
+        Label roomNameLabel = new Label("宿舍总数");
+        statsRoomCountLabel = new Label("--");
+        statsRoomCountLabel.setFont(Font.font(16));
+        roomBox.getChildren().addAll(roomNameLabel, statsRoomCountLabel);
+        
+        statRow.getChildren().addAll(orderBox, studentBox, roomBox);
 
-        // 图表行
-        HBox chartRow = new HBox(20);
-        chartRow.setPrefHeight(300);
+        // 图表
+        HBox chartRow = new HBox(15);
+        VBox leftChart = new VBox(10);
+        leftChart.setStyle("-fx-background-color: white; -fx-padding: 15;");
+        leftChart.setPrefWidth(400);
+        leftChart.getChildren().add(new Label("报修类型分布"));
+        statsTypePie = new PieChart();
+        leftChart.getChildren().add(statsTypePie);
 
-        VBox leftChart = new VBox(15);
-        leftChart.setStyle("-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 12;");
-        leftChart.setPrefWidth(580);
-        leftChart.getChildren().add(new Label("📊 报修类型分布"));
-        PieChart typePie = new PieChart();
-        typePie.setId("statsTypePie");
-        leftChart.getChildren().add(typePie);
-
-        VBox rightChart = new VBox(15);
-        rightChart.setStyle("-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 12;");
-        rightChart.setPrefWidth(580);
-        rightChart.getChildren().add(new Label("📈 月度趋势"));
-        LineChart<String, Number> lineChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
-        lineChart.setId("statsLineChart");
-        rightChart.getChildren().add(lineChart);
+        VBox rightChart = new VBox(10);
+        rightChart.setStyle("-fx-background-color: white; -fx-padding: 15;");
+        rightChart.setPrefWidth(400);
+        rightChart.getChildren().add(new Label("月度趋势"));
+        statsLineChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
+        rightChart.getChildren().add(statsLineChart);
 
         chartRow.getChildren().addAll(leftChart, rightChart);
 
-        pane.getChildren().addAll(title, cardRow, chartRow);
+        pane.getChildren().addAll(title, statRow, chartRow);
 
         new Thread(this::loadStatsData).start();
-
         return pane;
     }
 
     // 7. 学生端首页
     private Pane buildStudentHomePane() {
-        VBox pane = new VBox(25);
-        pane.setPadding(new Insets(30));
+        VBox pane = new VBox(15);
+        pane.setPadding(new Insets(15));
 
-        // 欢迎卡片
-        HBox welcomeCard = new HBox(20);
-        welcomeCard.setStyle("-fx-background-color: linear-gradient(to right, #667eea, #764ba2); " +
-                             "-fx-background-radius: 16; -fx-padding: 30;");
-        VBox welcomeText = new VBox(10);
-        welcomeText.setPrefWidth(400);
-        Label hello = new Label("同学，你好！");
-        hello.setStyle("-fx-font-size: 28; -fx-text-fill: white; -fx-font-weight: bold;");
-        Label info = new Label("欢迎使用宿舍管理系统");
-        info.setStyle("-fx-font-size: 16; -fx-text-fill: rgba(255,255,255,0.9);");
-        Label detail = new Label(currentStudentInfo != null ?
+        // 欢迎信息
+        VBox welcomeBox = new VBox(5);
+        welcomeBox.setPadding(new Insets(15));
+        welcomeBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        Label hello = new Label("你好，" + (currentStudentInfo != null ? currentStudentInfo.getRealName() : "同学"));
+        hello.setFont(Font.font(16));
+        Label info = new Label(currentStudentInfo != null ?
             String.format("院系：%s | 专业：%s | 宿舍：%s", 
                 currentStudentInfo.getDepartment(),
                 currentStudentInfo.getMajor(),
                 currentStudentInfo.getRoomNumber()) : "");
-        detail.setStyle("-fx-font-size: 14; -fx-text-fill: rgba(255,255,255,0.8);");
-        welcomeText.getChildren().addAll(hello, info, detail);
-        welcomeCard.getChildren().add(welcomeText);
+        welcomeBox.getChildren().addAll(hello, info);
 
         // 快捷功能
-        HBox quickActions = new HBox(15);
-        quickActions.setPadding(new Insets(20, 0, 0, 0));
-        String[] actions = {"🔧 我要报修", "📰 查看公告", "👤 个人资料", "💬 联系宿管"};
+        HBox quickActions = new HBox(10);
+        String[] actions = {"我要报修", "查看公告", "个人资料"};
         for (String act : actions) {
             Button btn = new Button(act);
-            btn.setPrefSize(180, 60);
-            btn.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-border-color: #E0E0E0; " +
-                         "-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #333;");
+            btn.setOnAction(e -> {
+                if ("我要报修".equals(act)) {
+                    mainTabPane.getSelectionModel().select(1);
+                } else if ("查看公告".equals(act)) {
+                    mainTabPane.getSelectionModel().select(2);
+                } else {
+                    showAlert("功能开发中：" + act);
+                }
+            });
             quickActions.getChildren().add(btn);
         }
 
         // 我的报修单
-        VBox myOrders = new VBox(15);
-        myOrders.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20;");
-        myOrders.getChildren().add(new Label("📋 我的报修记录"));
+        VBox myOrders = new VBox(10);
+        myOrders.setStyle("-fx-background-color: white; -fx-padding: 15;");
+        myOrders.getChildren().add(new Label("我的报修记录"));
         TableView<RepairOrder> orderTable = new TableView<>();
-        orderTable.setPrefHeight(200);
+        orderTable.setPrefHeight(150);
         TableColumn<RepairOrder, String> descCol = new TableColumn<>("问题描述");
         descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
         TableColumn<RepairOrder, String> statusCol = new TableColumn<>("状态");
@@ -855,22 +873,22 @@ public class DormClientApp extends Application {
         orderTable.getColumns().addAll(descCol, statusCol, timeCol);
         myOrders.getChildren().add(orderTable);
 
-        pane.getChildren().addAll(welcomeCard, quickActions, myOrders);
+        pane.getChildren().addAll(welcomeBox, quickActions, myOrders);
 
         new Thread(() -> loadMyOrders(orderTable)).start();
-
         return pane;
     }
 
     // 8. 学生报修面板
     private Pane buildStudentRepairPane() {
-        VBox pane = new VBox(25);
-        pane.setPadding(new Insets(30));
+        VBox pane = new VBox(15);
+        pane.setPadding(new Insets(15));
 
         // 报修表单
-        VBox formBox = new VBox(15);
-        formBox.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 30;");
-        formBox.getChildren().add(new Label("🔧 提交报修申请"));
+        VBox formBox = new VBox(10);
+        formBox.setPadding(new Insets(15));
+        formBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        formBox.getChildren().add(new Label("提交报修"));
 
         TextField nameField = new TextField();
         nameField.setPromptText("报修人姓名");
@@ -881,33 +899,30 @@ public class DormClientApp extends Application {
         roomField.setText(currentStudentInfo != null ? currentStudentInfo.getRoomNumber() : "");
 
         TextArea descArea = new TextArea();
-        descArea.setPromptText("详细描述问题（不少于10字）");
-        descArea.setPrefRowCount(4);
+        descArea.setPromptText("问题描述（不少于10字）");
+        descArea.setPrefRowCount(3);
 
         ComboBox<String> typeBox = new ComboBox<>();
         typeBox.getItems().addAll("水电", "家具", "网络", "门窗", "其他");
         typeBox.setValue("其他");
 
         ComboBox<String> priorityBox = new ComboBox<>();
-        priorityBox.getItems().addAll("Low", "Normal", "High", "Urgent");
-        priorityBox.setValue("Normal");
+        priorityBox.getItems().addAll("普通", "紧急");
+        priorityBox.setValue("普通");
 
-        Button submitBtn = new Button("🚀 提交报修");
-        submitBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 16; -fx-pref-height: 45;");
-        submitBtn.setMaxWidth(Double.MAX_VALUE);
+        Button submitBtn = new Button("提交报修");
 
         Label resultMsg = new Label();
-        resultMsg.setStyle("-fx-font-size: 14;");
 
         submitBtn.setOnAction(e -> {
             if (nameField.getText().isEmpty() || roomField.getText().isEmpty() || descArea.getText().isEmpty()) {
-                resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
-                resultMsg.setText("❌ 请填写完整信息");
+                resultMsg.setStyle("-fx-text-fill: red;");
+                resultMsg.setText("请填写完整信息");
                 return;
             }
             if (descArea.getText().length() < 10) {
-                resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
-                resultMsg.setText("❌ 问题描述不少于10个字");
+                resultMsg.setStyle("-fx-text-fill: red;");
+                resultMsg.setText("问题描述不少于10个字");
                 return;
             }
             try {
@@ -928,16 +943,16 @@ public class DormClientApp extends Application {
                         .build();
                 HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
                 if (res.statusCode() == 200 || res.statusCode() == 201) {
-                    resultMsg.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 14;");
-                    resultMsg.setText("✅ 报修提交成功！请等待管理员处理。");
+                    resultMsg.setStyle("-fx-text-fill: green;");
+                    resultMsg.setText("报修提交成功！");
                     descArea.clear();
                 } else {
-                    resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
-                    resultMsg.setText("❌ 提交失败: " + res.body());
+                    resultMsg.setStyle("-fx-text-fill: red;");
+                    resultMsg.setText("提交失败: " + res.body());
                 }
             } catch (Exception ex) {
-                resultMsg.setStyle("-fx-text-fill: #F44336; -fx-font-size: 14;");
-                resultMsg.setText("❌ 网络错误，请检查服务器连接");
+                resultMsg.setStyle("-fx-text-fill: red;");
+                resultMsg.setText("网络错误");
                 ex.printStackTrace();
             }
         });
@@ -957,8 +972,8 @@ public class DormClientApp extends Application {
 
     // 9. 学生公告面板
     private Pane buildStudentNoticePane() {
-        VBox pane = new VBox(15);
-        pane.setPadding(new Insets(25));
+        VBox pane = new VBox(10);
+        pane.setPadding(new Insets(15));
 
         ListView<Announcement> listView = new ListView<>();
         listView.setCellFactory(param -> new ListCell<Announcement>() {
@@ -968,42 +983,41 @@ public class DormClientApp extends Application {
                 if (empty || item == null) {
                     setText(null);
                 } else {
-                    String color = "🔴".equals(item.getType()) ? "#F44336" : "📢".equals(item.getType()) ? "#2196F3" : "#4CAF50";
-                    String emoji = "紧急".equals(item.getType()) ? "🔴" : "通知".equals(item.getType()) ? "📢" : "📌";
-                    setText(String.format("%s %s\n%s\n发布: %s | %s",
-                        emoji, item.getTitle(),
-                        item.getContent().length() > 60 ? item.getContent().substring(0, 60) + "..." : item.getContent(),
+                    setText(String.format("[%s] %s\n%s\n发布: %s | %s",
+                        item.getType(), item.getTitle(),
+                        item.getContent().length() > 50 ? item.getContent().substring(0, 50) + "..." : item.getContent(),
                         item.getPublisher(),
                         item.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
                     ));
                     setWrapText(true);
-                    setPrefHeight(100);
+                    setPrefHeight(80);
                 }
             }
         });
 
-        pane.getChildren().addAll(new Label("📢 最新通知公告"), listView);
+        pane.getChildren().addAll(new Label("通知公告"), listView);
         new Thread(() -> loadStudentAnnouncements(listView)).start();
         return pane;
     }
 
     // 10. 学生资料面板
     private Pane buildStudentProfilePane() {
-        VBox pane = new VBox(25);
-        pane.setPadding(new Insets(30));
+        VBox pane = new VBox(15);
+        pane.setPadding(new Insets(15));
 
         if (currentStudentInfo == null) {
             pane.getChildren().add(new Label("未找到学生信息"));
             return pane;
         }
 
-        VBox card = new VBox(20);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 35;");
-        card.getChildren().add(new Label("👤 个人档案"));
+        VBox infoBox = new VBox(10);
+        infoBox.setPadding(new Insets(15));
+        infoBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        infoBox.getChildren().add(new Label("个人资料"));
 
         GridPane grid = new GridPane();
-        grid.setHgap(25);
-        grid.setVgap(15);
+        grid.setHgap(20);
+        grid.setVgap(10);
 
         addGridRow(grid, 0, "姓名", currentStudentInfo.getRealName());
         addGridRow(grid, 1, "学号", currentStudentInfo.getStudentNo());
@@ -1017,8 +1031,8 @@ public class DormClientApp extends Application {
         addGridRow(grid, 9, "入住时间", currentStudentInfo.getCheckInDate() != null ?
             currentStudentInfo.getCheckInDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : "");
 
-        card.getChildren().add(grid);
-        pane.getChildren().add(card);
+        infoBox.getChildren().add(grid);
+        pane.getChildren().add(infoBox);
 
         return pane;
     }
@@ -1026,14 +1040,13 @@ public class DormClientApp extends Application {
     // ========== 辅助方法 ==========
 
     private VBox createCard(String title, String color, String value) {
-        VBox card = new VBox(10);
-        card.setPadding(new Insets(20));
-        card.setStyle(String.format("-fx-background-color: white; -fx-background-radius: 12; " +
-                                   "-fx-border-radius: 12; -fx-border-width: 2; -fx-border-color: %s;", color));
+        VBox card = new VBox(5);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        card.setPrefWidth(120);
         Label titleLabel = new Label(title);
-        titleLabel.setStyle("-fx-text-fill: #555; -fx-font-size: 14;");
         Label valueLabel = new Label(value);
-        valueLabel.setStyle(String.format("-fx-text-fill: %s; -fx-font-size: 28; -fx-font-weight: bold;", color));
+        valueLabel.setFont(Font.font(16));
         card.getChildren().addAll(titleLabel, valueLabel);
         return card;
     }
@@ -1057,11 +1070,19 @@ public class DormClientApp extends Application {
             String json = client.send(req, HttpResponse.BodyHandlers.ofString()).body();
             JsonNode data = mapper.readTree(json);
             javafx.application.Platform.runLater(() -> {
-                // 更新卡片
-                updateCard("#studentsCard", data.get("totalStudents").asText());
-                updateCard("#roomsCard", data.get("totalRooms").asText());
-                updateCard("#pendingCard", data.get("pendingOrders").asText());
-                updateCard("#resolvedCard", data.get("resolvedOrders").asText());
+                // 直接更新标签
+                if (studentsCountLabel != null && data.has("totalStudents")) {
+                    studentsCountLabel.setText(data.get("totalStudents").asText());
+                }
+                if (roomsCountLabel != null && data.has("totalRooms")) {
+                    roomsCountLabel.setText(data.get("totalRooms").asText());
+                }
+                if (pendingCountLabel != null && data.has("pendingOrders")) {
+                    pendingCountLabel.setText(data.get("pendingOrders").asText());
+                }
+                if (resolvedCountLabel != null && data.has("resolvedOrders")) {
+                    resolvedCountLabel.setText(data.get("resolvedOrders").asText());
+                }
             });
         } catch (Exception e) {
             e.printStackTrace();
@@ -1070,6 +1091,20 @@ public class DormClientApp extends Application {
 
     private void updateCard(String cardId, String value) {
         // 简化：这里只是占位
+    }
+    
+    /** 创建统计卡片并返回数值标签引用 */
+    private Label createStatCard(HBox container, String title, String initialValue) {
+        VBox statBox = new VBox(5);
+        statBox.setPadding(new Insets(15));
+        statBox.setStyle("-fx-background-color: white; -fx-border-color: #cccccc;");
+        statBox.setPrefWidth(150);
+        Label titleLabel = new Label(title);
+        Label valueLabel = new Label(initialValue);
+        valueLabel.setFont(Font.font(18));
+        statBox.getChildren().addAll(titleLabel, valueLabel);
+        container.getChildren().add(statBox);
+        return valueLabel;
     }
 
     private void loadOrders(@SuppressWarnings("rawtypes") TableView table, String status, String keyword) {
@@ -1107,25 +1142,79 @@ public class DormClientApp extends Application {
             if (keyword != null && !keyword.isEmpty()) {
                 url += "?keyword=" + java.net.URLEncoder.encode(keyword, "UTF-8");
             }
+            System.out.println("[DEBUG] loadStudents URL: " + url);
             String json = fetchJson(url);
-            List<StudentInfo> students = mapper.readValue(json, new TypeReference<List<StudentInfo>>() {});
+            System.out.println("[DEBUG] loadStudents response: " + json);
+            
+            // 检查是否返回了错误信息
+            if (json == null || json.trim().isEmpty()) {
+                System.err.println("[ERROR] Empty response from server");
+                return;
+            }
+            
+            // 尝试解析为JSON数组
+            List<StudentInfo> students;
+            try {
+                students = mapper.readValue(json, new TypeReference<List<StudentInfo>>() {});
+            } catch (Exception parseEx) {
+                // 如果解析失败，可能是返回了JSON对象（如错误信息）
+                JsonNode node = mapper.readTree(json);
+                if (node.isObject() && node.has("message")) {
+                    System.err.println("[ERROR] Server returned error: " + node.get("message").asText());
+                    return;
+                }
+                throw parseEx;
+            }
+            
+            System.out.println("[DEBUG] Parsed students count: " + students.size());
+            final List<StudentInfo> finalStudents = students;
             javafx.application.Platform.runLater(() -> {
-                table.setItems(FXCollections.observableArrayList(students));
+                table.getItems().clear();
+                table.setItems(FXCollections.observableArrayList(finalStudents));
+                table.refresh();
+                System.out.println("[DEBUG] Table items set, count: " + table.getItems().size());
             });
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[ERROR] loadStudents failed: " + e.getMessage());
         }
     }
 
     private void loadAnnouncements(@SuppressWarnings("rawtypes") TableView table) {
         try {
-            String json = fetchJson(SERVER_URL + "/api/announcements/all");
-            List<Announcement> anns = mapper.readValue(json, new TypeReference<List<Announcement>>() {});
+            String url = SERVER_URL + "/api/announcements/all";
+            System.out.println("[DEBUG] loadAnnouncements URL: " + url);
+            String json = fetchJson(url);
+            System.out.println("[DEBUG] loadAnnouncements response: " + json);
+            
+            if (json == null || json.trim().isEmpty()) {
+                System.err.println("[ERROR] Empty response from server");
+                return;
+            }
+            
+            List<Announcement> anns;
+            try {
+                anns = mapper.readValue(json, new TypeReference<List<Announcement>>() {});
+            } catch (Exception parseEx) {
+                JsonNode node = mapper.readTree(json);
+                if (node.isObject() && node.has("message")) {
+                    System.err.println("[ERROR] Server returned error: " + node.get("message").asText());
+                    return;
+                }
+                throw parseEx;
+            }
+            
+            System.out.println("[DEBUG] Parsed announcements count: " + anns.size());
+            final List<Announcement> finalAnns = anns;
             javafx.application.Platform.runLater(() -> {
-                table.setItems(FXCollections.observableArrayList(anns));
+                table.getItems().clear();
+                table.setItems(FXCollections.observableArrayList(finalAnns));
+                table.refresh();
+                System.out.println("[DEBUG] Announcement table items set, count: " + table.getItems().size());
             });
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[ERROR] loadAnnouncements failed: " + e.getMessage());
         }
     }
 
@@ -1158,9 +1247,62 @@ public class DormClientApp extends Application {
 
     private void loadStatsData() {
         try {
+            // 获取仪表盘基础数据
             String json = fetchJson(SERVER_URL + "/api/dashboard");
             JsonNode data = mapper.readTree(json);
-            // 可以在这里更新图表
+            
+            // 获取报修列表用于统计类型分布
+            String ordersJson = fetchJson(SERVER_URL + "/api/orders");
+            List<RepairOrder> orders = mapper.readValue(ordersJson, new TypeReference<List<RepairOrder>>() {});
+            
+            // 统计报修类型
+            Map<String, Integer> typeCount = new HashMap<>();
+            for (RepairOrder order : orders) {
+                String type = order.getRepairType();
+                if (type == null || type.isEmpty()) type = "其他";
+                typeCount.put(type, typeCount.getOrDefault(type, 0) + 1);
+            }
+            
+            // 统计月度趋势（按创建时间月份分组）
+            Map<String, Integer> monthlyCount = new TreeMap<>();
+            for (RepairOrder order : orders) {
+                if (order.getCreatedAt() != null) {
+                    String month = order.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+                    monthlyCount.put(month, monthlyCount.getOrDefault(month, 0) + 1);
+                }
+            }
+            
+            javafx.application.Platform.runLater(() -> {
+                // 更新统计数字
+                if (statsOrderCountLabel != null && data.has("totalOrders")) {
+                    statsOrderCountLabel.setText(data.get("totalOrders").asText());
+                }
+                if (statsStudentCountLabel != null && data.has("totalStudents")) {
+                    statsStudentCountLabel.setText(data.get("totalStudents").asText());
+                }
+                if (statsRoomCountLabel != null && data.has("totalRooms")) {
+                    statsRoomCountLabel.setText(data.get("totalRooms").asText());
+                }
+                
+                // 更新饼图
+                if (statsTypePie != null) {
+                    statsTypePie.getData().clear();
+                    for (Map.Entry<String, Integer> entry : typeCount.entrySet()) {
+                        statsTypePie.getData().add(new PieChart.Data(entry.getKey(), entry.getValue()));
+                    }
+                }
+                
+                // 更新折线图
+                if (statsLineChart != null) {
+                    statsLineChart.getData().clear();
+                    XYChart.Series<String, Number> series = new XYChart.Series<>();
+                    series.setName("报修数量");
+                    for (Map.Entry<String, Integer> entry : monthlyCount.entrySet()) {
+                        series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+                    }
+                    statsLineChart.getData().add(series);
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1255,8 +1397,7 @@ public class DormClientApp extends Application {
         grid.add(new Label("额定人数:"), 0, 4); grid.add(capacityField, 1, 4);
         grid.add(new Label("状态:"), 0, 5); grid.add(statusBox, 1, 5);
 
-        Button saveBtn = new Button(room == null ? "➕ 新增" : "💾 保存");
-        saveBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 14; -fx-pref-height: 38;");
+        Button saveBtn = new Button(room == null ? "新增" : "保存");
         saveBtn.setMaxWidth(Double.MAX_VALUE);
 
         saveBtn.setOnAction(ev -> {
@@ -1282,7 +1423,7 @@ public class DormClientApp extends Application {
                 HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
                 if (res.statusCode() < 400) {
                     dialog.close();
-                    new Thread(() -> loadDormRooms(table, "全部楼栋", "全部状态")).start();
+                    new Thread(() -> loadDormRooms(table, "全部楼栋", "")).start();
                 } else {
                     showAlert("保存失败: " + res.body());
                 }
@@ -1301,6 +1442,12 @@ public class DormClientApp extends Application {
     /** 公告新增/编辑对话框 */
     @SuppressWarnings("rawtypes")
     private void showAnnouncementDialog(Announcement ann, TableView table) {
+        showAnnouncementDialog(ann, table, false);
+    }
+
+    /** 公告新增/编辑对话框（带仪表盘来源标记） */
+    @SuppressWarnings("rawtypes")
+    private void showAnnouncementDialog(Announcement ann, TableView table, boolean fromDashboard) {
         Stage dialog = new Stage();
         dialog.setTitle(ann == null ? "发布公告" : "编辑公告");
         dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
@@ -1332,8 +1479,7 @@ public class DormClientApp extends Application {
         grid.add(new Label("内容:"), 0, 2); grid.add(contentArea, 1, 2);
         grid.add(new Label("状态:"), 0, 3); grid.add(statusBox, 1, 3);
 
-        Button saveBtn = new Button(ann == null ? "📢 发布" : "💾 保存");
-        saveBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 14; -fx-pref-height: 38;");
+        Button saveBtn = new Button(ann == null ? "发布" : "保存");
         saveBtn.setMaxWidth(Double.MAX_VALUE);
 
         saveBtn.setOnAction(ev -> {
@@ -1364,7 +1510,19 @@ public class DormClientApp extends Application {
                 HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
                 if (res.statusCode() < 400) {
                     dialog.close();
-                    new Thread(() -> loadAnnouncements(table)).start();
+                    if (table != null) {
+                        new Thread(() -> loadAnnouncements(table)).start();
+                    } else if (fromDashboard && announcementTableRef != null) {
+                        // 从仪表盘发布，刷新公告管理表格
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(500);
+                                loadAnnouncements(announcementTableRef);
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }).start();
+                    }
                 } else {
                     showAlert("发布失败: " + res.body());
                 }
@@ -1375,6 +1533,340 @@ public class DormClientApp extends Application {
 
         grid.add(saveBtn, 0, 4, 2, 1);
         dialog.setScene(new Scene(grid, 440, 380));
+        dialog.showAndWait();
+    }
+
+    /** 学生新增/编辑对话框 */
+    @SuppressWarnings("rawtypes")
+    private void showStudentDialog(StudentInfo student, TableView table) {
+        Stage dialog = new Stage();
+        dialog.setTitle(student == null ? "新增学生" : "编辑学生");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(15);
+        grid.setVgap(12);
+        grid.setPadding(new Insets(25));
+
+        TextField studentNoField = new TextField(student != null ? student.getStudentNo() : "");
+        studentNoField.setPromptText("学号");
+        TextField realNameField = new TextField(student != null ? student.getRealName() : "");
+        realNameField.setPromptText("姓名");
+        ComboBox<String> genderBox = new ComboBox<>();
+        genderBox.getItems().addAll("男", "女");
+        genderBox.setValue(student != null && student.getGender() != null ? student.getGender() : "男");
+        TextField phoneField = new TextField(student != null ? student.getPhone() : "");
+        phoneField.setPromptText("手机号");
+        TextField deptField = new TextField(student != null ? student.getDepartment() : "");
+        deptField.setPromptText("院系");
+        TextField majorField = new TextField(student != null ? student.getMajor() : "");
+        majorField.setPromptText("专业");
+        TextField classField = new TextField(student != null ? student.getClassName() : "");
+        classField.setPromptText("班级");
+        TextField roomField = new TextField(student != null ? student.getRoomNumber() : "");
+        roomField.setPromptText("宿舍号");
+        TextField bedField = new TextField(student != null ? String.valueOf(student.getBedNumber()) : "");
+        bedField.setPromptText("床位号");
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("在住", "离校", "毕业");
+        statusBox.setValue(student != null && student.getStatus() != null ? student.getStatus() : "在住");
+
+        grid.add(new Label("学号:"), 0, 0); grid.add(studentNoField, 1, 0);
+        grid.add(new Label("姓名:"), 0, 1); grid.add(realNameField, 1, 1);
+        grid.add(new Label("性别:"), 0, 2); grid.add(genderBox, 1, 2);
+        grid.add(new Label("手机:"), 0, 3); grid.add(phoneField, 1, 3);
+        grid.add(new Label("院系:"), 0, 4); grid.add(deptField, 1, 4);
+        grid.add(new Label("专业:"), 0, 5); grid.add(majorField, 1, 5);
+        grid.add(new Label("班级:"), 0, 6); grid.add(classField, 1, 6);
+        grid.add(new Label("宿舍:"), 0, 7); grid.add(roomField, 1, 7);
+        grid.add(new Label("床位:"), 0, 8); grid.add(bedField, 1, 8);
+        grid.add(new Label("状态:"), 0, 9); grid.add(statusBox, 1, 9);
+
+        Button saveBtn = new Button(student == null ? "新增" : "保存");
+        saveBtn.setMaxWidth(Double.MAX_VALUE);
+
+        saveBtn.setOnAction(ev -> {
+            try {
+                int bedNum = bedField.getText().isEmpty() ? 0 : Integer.parseInt(bedField.getText().trim());
+                String body = String.format(
+                    "{\"studentNo\":\"%s\",\"realName\":\"%s\",\"gender\":\"%s\",\"phone\":\"%s\",\"department\":\"%s\",\"major\":\"%s\",\"className\":\"%s\",\"roomNumber\":\"%s\",\"bedNumber\":%d,\"status\":\"%s\"}",
+                    studentNoField.getText().replace("\"","'"),
+                    realNameField.getText().replace("\"","'"),
+                    genderBox.getValue(),
+                    phoneField.getText().replace("\"","'"),
+                    deptField.getText().replace("\"","'"),
+                    majorField.getText().replace("\"","'"),
+                    classField.getText().replace("\"","'"),
+                    roomField.getText().replace("\"","'"),
+                    bedNum,
+                    statusBox.getValue()
+                );
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
+                        .header("Content-Type", "application/json");
+                if (student == null) {
+                    reqBuilder.uri(URI.create(SERVER_URL + "/api/students"))
+                              .POST(HttpRequest.BodyPublishers.ofString(body));
+                } else {
+                    reqBuilder.uri(URI.create(SERVER_URL + "/api/students/" + student.getId()))
+                              .PUT(HttpRequest.BodyPublishers.ofString(body));
+                }
+                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() < 400) {
+                    dialog.close();
+                    new Thread(() -> loadStudents(table, "")).start();
+                } else {
+                    showAlert("保存失败: " + res.body());
+                }
+            } catch (NumberFormatException nfe) {
+                showAlert("床位号必须是数字");
+            } catch (Exception ex) {
+                showAlert("网络错误: " + ex.getMessage());
+            }
+        });
+
+        grid.add(saveBtn, 0, 10, 2, 1);
+        dialog.setScene(new Scene(grid, 400, 520));
+        dialog.showAndWait();
+    }
+
+    /** 导入学生对话框 */
+    private void showImportStudentDialog() {
+        Stage dialog = new Stage();
+        dialog.setTitle("批量导入学生");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        VBox box = new VBox(15);
+        box.setPadding(new Insets(25));
+        box.setAlignment(Pos.CENTER);
+
+        Label hint = new Label("请粘贴学生信息，支持两种格式：");
+        hint.setWrapText(true);
+        
+        Label format = new Label("格式1（推荐）：每行一条，逗号分隔\n2021001,张三,男,13800138000,计算机学院,软件工程,软工2101,A101,1\n\n格式2：每行一个字段（共9行一条记录）\n2021001\n张三\n男\n...");
+        format.setStyle("-fx-font-family: monospace; -fx-background-color: #f5f5f5; -fx-padding: 10;");
+        format.setWrapText(true);
+        
+        TextArea area = new TextArea();
+        area.setPromptText("粘贴学生数据...");
+        area.setPrefRowCount(12);
+        area.setPrefWidth(500);
+
+        Label resultLabel = new Label();
+        
+        Button importBtn = new Button("开始导入");
+        importBtn.setOnAction(e -> {
+            String text = area.getText().trim();
+            if (text.isEmpty()) {
+                resultLabel.setStyle("-fx-text-fill: red;");
+                resultLabel.setText("请输入数据");
+                return;
+            }
+            
+            int success = 0, fail = 0;
+            String[] lines = text.split("\n");
+            
+            // 检测格式：如果第一行包含逗号，使用格式1；否则使用格式2（每9行一条）
+            boolean isCommaFormat = lines.length > 0 && lines[0].contains(",");
+            
+            if (isCommaFormat) {
+                // 格式1：每行一条，逗号分隔
+                for (String line : lines) {
+                    line = line.trim();
+                    if (line.isEmpty()) continue;
+                    String[] parts = line.split(",");
+                    if (parts.length < 9) {
+                        fail++;
+                        continue;
+                    }
+                    try {
+                        String body = String.format(
+                            "{\"studentNo\":\"%s\",\"realName\":\"%s\",\"gender\":\"%s\",\"phone\":\"%s\",\"department\":\"%s\",\"major\":\"%s\",\"className\":\"%s\",\"roomNumber\":\"%s\",\"bedNumber\":%d,\"status\":\"在住\"}",
+                            parts[0].trim(), parts[1].trim(), parts[2].trim(), parts[3].trim(),
+                            parts[4].trim(), parts[5].trim(), parts[6].trim(), parts[7].trim(),
+                            Integer.parseInt(parts[8].trim())
+                        );
+                        HttpClient client = HttpClient.newHttpClient();
+                        HttpRequest req = HttpRequest.newBuilder()
+                                .uri(URI.create(SERVER_URL + "/api/students"))
+                                .header("Content-Type", "application/json")
+                                .POST(HttpRequest.BodyPublishers.ofString(body))
+                                .build();
+                        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                        if (res.statusCode() < 400) success++;
+                        else fail++;
+                    } catch (Exception ex) {
+                        fail++;
+                    }
+                }
+            } else {
+                // 格式2：每9行一条记录
+                for (int i = 0; i < lines.length; i += 9) {
+                    if (i + 8 >= lines.length) {
+                        fail++;
+                        break;
+                    }
+                    try {
+                        String body = String.format(
+                            "{\"studentNo\":\"%s\",\"realName\":\"%s\",\"gender\":\"%s\",\"phone\":\"%s\",\"department\":\"%s\",\"major\":\"%s\",\"className\":\"%s\",\"roomNumber\":\"%s\",\"bedNumber\":%d,\"status\":\"在住\"}",
+                            lines[i].trim(), lines[i+1].trim(), lines[i+2].trim(), lines[i+3].trim(),
+                            lines[i+4].trim(), lines[i+5].trim(), lines[i+6].trim(), lines[i+7].trim(),
+                            Integer.parseInt(lines[i+8].trim())
+                        );
+                        HttpClient client = HttpClient.newHttpClient();
+                        HttpRequest req = HttpRequest.newBuilder()
+                                .uri(URI.create(SERVER_URL + "/api/students"))
+                                .header("Content-Type", "application/json")
+                                .POST(HttpRequest.BodyPublishers.ofString(body))
+                                .build();
+                        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                        if (res.statusCode() < 400) success++;
+                        else fail++;
+                    } catch (Exception ex) {
+                        fail++;
+                    }
+                }
+            }
+            resultLabel.setStyle("-fx-text-fill: green;");
+            resultLabel.setText(String.format("导入完成：成功 %d 条，失败 %d 条", success, fail));
+            
+            // 导入成功后刷新学生管理表格
+            if (success > 0 && studentTableRef != null) {
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(500); // 稍等片刻确保数据库已更新
+                        loadStudents(studentTableRef, "");
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }).start();
+            }
+        });
+
+        box.getChildren().addAll(hint, format, area, importBtn, resultLabel);
+        dialog.setScene(new Scene(box, 550, 450));
+        dialog.showAndWait();
+    }
+
+    /** 生成报表对话框 */
+    private void showGenerateReportDialog() {
+        Stage dialog = new Stage();
+        dialog.setTitle("生成统计报表");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        VBox box = new VBox(15);
+        box.setPadding(new Insets(25));
+        box.setAlignment(Pos.CENTER_LEFT);
+
+        Label title = new Label("选择报表类型：");
+        title.setFont(Font.font(16));
+
+        ComboBox<String> typeBox = new ComboBox<>();
+        typeBox.getItems().addAll("学生住宿统计", "宿舍使用情况", "报修处理统计", "公告发布统计");
+        typeBox.setValue("学生住宿统计");
+
+        Button generateBtn = new Button("生成并导出");
+        TextArea preview = new TextArea();
+        preview.setEditable(false);
+        preview.setPrefRowCount(15);
+        preview.setPrefWidth(500);
+
+        generateBtn.setOnAction(e -> {
+            String type = typeBox.getValue();
+            new Thread(() -> {
+                try {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("========== ").append(type).append(" ==========\n\n");
+                    
+                    HttpClient client = HttpClient.newHttpClient();
+                    
+                    switch (type) {
+                        case "学生住宿统计":
+                            HttpRequest req1 = HttpRequest.newBuilder()
+                                    .uri(URI.create(SERVER_URL + "/api/students"))
+                                    .GET().build();
+                            String studentsJson = client.send(req1, HttpResponse.BodyHandlers.ofString()).body();
+                            List<StudentInfo> students = mapper.readValue(studentsJson, new TypeReference<List<StudentInfo>>() {});
+                            sb.append("总人数：").append(students.size()).append("\n\n");
+                            sb.append("学号\t\t姓名\t\t宿舍\t床位\t状态\n");
+                            sb.append("----------------------------------------\n");
+                            for (StudentInfo s : students) {
+                                sb.append(String.format("%s\t%s\t\t%s\t%d\t%s\n",
+                                    s.getStudentNo(), s.getRealName(), 
+                                    s.getRoomNumber(), s.getBedNumber(), s.getStatus()));
+                            }
+                            break;
+                            
+                        case "宿舍使用情况":
+                            HttpRequest req2 = HttpRequest.newBuilder()
+                                    .uri(URI.create(SERVER_URL + "/api/rooms"))
+                                    .GET().build();
+                            String roomsJson = client.send(req2, HttpResponse.BodyHandlers.ofString()).body();
+                            List<DormRoom> rooms = mapper.readValue(roomsJson, new TypeReference<List<DormRoom>>() {});
+                            sb.append("总宿舍数：").append(rooms.size()).append("\n\n");
+                            sb.append("楼栋\t房间号\t类型\t容量\t当前人数\t状态\n");
+                            sb.append("----------------------------------------\n");
+                            for (DormRoom r : rooms) {
+                                sb.append(String.format("%s\t%s\t\t%s\t%d\t%d\t\t%s\n",
+                                    r.getBuildingName(), r.getRoomNumber(),
+                                    r.getRoomType(), r.getCapacity(), r.getCurrentCount(), r.getStatus()));
+                            }
+                            break;
+                            
+                        case "报修处理统计":
+                            HttpRequest req3 = HttpRequest.newBuilder()
+                                    .uri(URI.create(SERVER_URL + "/api/orders"))
+                                    .GET().build();
+                            String ordersJson = client.send(req3, HttpResponse.BodyHandlers.ofString()).body();
+                            List<RepairOrder> orders = mapper.readValue(ordersJson, new TypeReference<List<RepairOrder>>() {});
+                            long pending = orders.stream().filter(o -> "待处理".equals(o.getStatus())).count();
+                            long processing = orders.stream().filter(o -> "处理中".equals(o.getStatus())).count();
+                            long resolved = orders.stream().filter(o -> "已解决".equals(o.getStatus())).count();
+                            sb.append("总报修数：").append(orders.size()).append("\n");
+                            sb.append("待处理：").append(pending).append("\n");
+                            sb.append("处理中：").append(processing).append("\n");
+                            sb.append("已解决：").append(resolved).append("\n\n");
+                            sb.append("单号\t宿舍\t类型\t状态\t提交时间\n");
+                            sb.append("----------------------------------------\n");
+                            for (RepairOrder o : orders) {
+                                sb.append(String.format("#%d\t%s\t%s\t%s\t%s\n",
+                                    o.getId(), o.getRoomNumber(), o.getRepairType(),
+                                    o.getStatus(), o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : ""));
+                            }
+                            break;
+                            
+                        case "公告发布统计":
+                            HttpRequest req4 = HttpRequest.newBuilder()
+                                    .uri(URI.create(SERVER_URL + "/api/announcements/all"))
+                                    .GET().build();
+                            String annJson = client.send(req4, HttpResponse.BodyHandlers.ofString()).body();
+                            List<Announcement> anns = mapper.readValue(annJson, new TypeReference<List<Announcement>>() {});
+                            sb.append("总公告数：").append(anns.size()).append("\n\n");
+                            sb.append("标题\t\t\t类型\t发布人\t状态\t发布时间\n");
+                            sb.append("----------------------------------------\n");
+                            for (Announcement a : anns) {
+                                String titleStr = a.getTitle().length() > 12 ? a.getTitle().substring(0, 12) + "..." : a.getTitle();
+                                sb.append(String.format("%s\t%s\t%s\t%s\t%s\n",
+                                    titleStr, a.getType(), a.getPublisher(),
+                                    a.getStatus(), a.getCreatedAt() != null ? a.getCreatedAt().toLocalDate() : ""));
+                            }
+                            break;
+                    }
+                    
+                    javafx.application.Platform.runLater(() -> {
+                        preview.setText(sb.toString());
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    javafx.application.Platform.runLater(() -> {
+                        preview.setText("生成报表失败：" + ex.getMessage());
+                    });
+                }
+            }).start();
+        });
+
+        box.getChildren().addAll(title, typeBox, generateBtn, new Label("预览："), preview);
+        dialog.setScene(new Scene(box, 600, 500));
         dialog.showAndWait();
     }
 
