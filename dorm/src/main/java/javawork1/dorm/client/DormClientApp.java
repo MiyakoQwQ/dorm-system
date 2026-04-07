@@ -256,7 +256,7 @@ public class DormClientApp extends Application {
         sidebar.getChildren().add(navTitle);
 
         String[] adminTabs = {"仪表盘", "报修管理", "宿舍管理", "学生管理", "公告管理", "系统统计"};
-        String[] studentTabs = {"我的首页", "我要报修", "查看公告", "我的资料"};
+        String[] studentTabs = {"我的首页", "我要报修", "通知公告", "个人资料"};
 
         String[] tabs = "ADMIN".equals(currentUserRole) ? adminTabs : studentTabs;
         for (int i = 0; i < tabs.length; i++) {
@@ -447,7 +447,18 @@ public class DormClientApp extends Application {
         TableColumn<RepairOrder, String> typeCol = new TableColumn<>("类型");
         typeCol.setCellValueFactory(new PropertyValueFactory<>("repairType"));
         TableColumn<RepairOrder, String> statusCol = new TableColumn<>("状态");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+        statusCol.setCellValueFactory(cell -> {
+            String status = cell.getValue().getStatus();
+            String displayStatus;
+            switch (status) {
+                case "Pending": displayStatus = "待处理"; break;
+                case "Processing": displayStatus = "处理中"; break;
+                case "Resolved": displayStatus = "已解决"; break;
+                case "Rejected": displayStatus = "已驳回"; break;
+                default: displayStatus = status;
+            }
+            return javafx.beans.binding.Bindings.createStringBinding(() -> displayStatus);
+        });
         TableColumn<RepairOrder, String> timeCol = new TableColumn<>("提交时间");
         timeCol.setCellValueFactory(cell -> {
             if (cell.getValue().getCreatedAt() == null) return null;
@@ -462,6 +473,7 @@ public class DormClientApp extends Application {
         // 操作区
         HBox actionBar = new HBox(10);
         actionBar.setPadding(new Insets(10, 0, 0, 0));
+        Button editBtn = new Button("修改");
         Button acceptBtn = new Button("受理");
         Button resolveBtn = new Button("完结");
         Button rejectBtn = new Button("驳回");
@@ -469,34 +481,53 @@ public class DormClientApp extends Application {
         remarkArea.setPromptText("处理意见");
         remarkArea.setPrefRowCount(2);
         remarkArea.setPrefWidth(200);
-        actionBar.getChildren().addAll(acceptBtn, resolveBtn, rejectBtn, new Label("备注:"), remarkArea);
+        actionBar.getChildren().addAll(editBtn, acceptBtn, resolveBtn, rejectBtn, new Label("备注:"), remarkArea);
 
         // 事件绑定
         refreshBtn.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
         searchBtn.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
         statusFilter.setOnAction(e -> loadOrders(table, statusFilter.getValue(), searchField.getText()));
 
+        editBtn.setOnAction(e -> {
+            RepairOrder selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) { showAlert("请先选择一条报修单"); return; }
+            showRepairOrderDialog(selected, table, statusFilter.getValue(), searchField.getText());
+        });
+
         acceptBtn.setOnAction(e -> {
             RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
-            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/accept", null);
-            loadOrders(table, statusFilter.getValue(), searchField.getText());
+            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/accept", null);
+            // 延迟刷新，等待服务器处理完成
+            new Thread(() -> {
+                try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                javafx.application.Platform.runLater(() -> 
+                    loadOrders(table, statusFilter.getValue(), searchField.getText()));
+            }).start();
         });
 
         resolveBtn.setOnAction(e -> {
             RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
-            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/resolve",
-                    "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
-            loadOrders(table, statusFilter.getValue(), searchField.getText());
+            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/resolve?remark=" + 
+                    java.net.URLEncoder.encode(remarkArea.getText(), "UTF-8"), null);
+            new Thread(() -> {
+                try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                javafx.application.Platform.runLater(() -> 
+                    loadOrders(table, statusFilter.getValue(), searchField.getText()));
+            }).start();
         });
 
         rejectBtn.setOnAction(e -> {
             RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
-            postAction(SERVER_URL + "/api/orders/" + selected.getId() + "/reject",
-                    "{\"remark\":\"" + remarkArea.getText().replace("\"", "'") + "\"}");
-            loadOrders(table, statusFilter.getValue(), searchField.getText());
+            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/reject?remark=" + 
+                    java.net.URLEncoder.encode(remarkArea.getText(), "UTF-8"), null);
+            new Thread(() -> {
+                try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                javafx.application.Platform.runLater(() -> 
+                    loadOrders(table, statusFilter.getValue(), searchField.getText()));
+            }).start();
         });
 
         // 初始加载
@@ -838,16 +869,16 @@ public class DormClientApp extends Application {
 
         // 快捷功能
         HBox quickActions = new HBox(10);
-        String[] actions = {"我要报修", "查看公告", "个人资料"};
+        String[] actions = {"我要报修", "通知公告", "个人资料"};
         for (String act : actions) {
             Button btn = new Button(act);
             btn.setOnAction(e -> {
                 if ("我要报修".equals(act)) {
-                    mainTabPane.getSelectionModel().select(1);
-                } else if ("查看公告".equals(act)) {
-                    mainTabPane.getSelectionModel().select(2);
-                } else {
-                    showAlert("功能开发中：" + act);
+                    mainTabPane.getSelectionModel().select(2); // "我要报修"是第3个Tab（索引2）
+                } else if ("通知公告".equals(act)) {
+                    mainTabPane.getSelectionModel().select(3); // "通知公告"是第4个Tab（索引3）
+                } else if ("个人资料".equals(act)) {
+                    mainTabPane.getSelectionModel().select(4); // "个人资料"是第5个Tab（索引4）
                 }
             });
             quickActions.getChildren().add(btn);
@@ -1110,29 +1141,51 @@ public class DormClientApp extends Application {
     private void loadOrders(@SuppressWarnings("rawtypes") TableView table, String status, String keyword) {
         try {
             String url = SERVER_URL + "/api/orders";
+            // 将中文状态转换为英文状态
+            String statusParam = status;
+            if ("待处理".equals(status)) statusParam = "Pending";
+            else if ("处理中".equals(status)) statusParam = "Processing";
+            else if ("已解决".equals(status)) statusParam = "Resolved";
+            else if ("已驳回".equals(status)) statusParam = "Rejected";
+            
             if (!"全部".equals(status) && !status.isEmpty()) {
-                url += "?status=" + status;
+                url += "?status=" + statusParam;
             }
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                url += (url.contains("?") ? "&" : "?") + "keyword=" + java.net.URLEncoder.encode(keyword, "UTF-8");
+            }
+            System.out.println("[DEBUG] loadOrders URL: " + url);
             String json = fetchJson(url);
+            System.out.println("[DEBUG] loadOrders response: " + json);
             List<RepairOrder> orders = mapper.readValue(json, new TypeReference<List<RepairOrder>>() {});
             javafx.application.Platform.runLater(() -> {
+                table.getItems().clear();
                 table.setItems(FXCollections.observableArrayList(orders));
             });
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[ERROR] loadOrders failed: " + e.getMessage());
         }
     }
 
     private void loadDormRooms(@SuppressWarnings("rawtypes") TableView table, String building, String status) {
         try {
             String url = SERVER_URL + "/api/rooms";
+            // 添加楼栋筛选参数
+            if (building != null && !"全部楼栋".equals(building) && !building.isEmpty()) {
+                url += "?building=" + java.net.URLEncoder.encode(building, "UTF-8");
+            }
+            System.out.println("[DEBUG] loadDormRooms URL: " + url);
             String json = fetchJson(url);
+            System.out.println("[DEBUG] loadDormRooms response: " + json);
             List<DormRoom> rooms = mapper.readValue(json, new TypeReference<List<DormRoom>>() {});
             javafx.application.Platform.runLater(() -> {
+                table.getItems().clear();
                 table.setItems(FXCollections.observableArrayList(rooms));
             });
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[ERROR] loadDormRooms failed: " + e.getMessage());
         }
     }
 
@@ -1332,6 +1385,30 @@ public class DormClientApp extends Application {
             HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
             if (res.statusCode() >= 400) {
                 javafx.application.Platform.runLater(() -> showAlert("操作失败: " + res.body()));
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            javafx.application.Platform.runLater(() -> showAlert("网络错误，请检查服务器连接"));
+        }
+    }
+
+    /** 通用 PUT 请求（用于状态更新） */
+    private void putAction(String url, String jsonBody) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(URI.create(url));
+            if (jsonBody != null && !jsonBody.isEmpty()) {
+                builder.header("Content-Type", "application/json")
+                       .PUT(HttpRequest.BodyPublishers.ofString(jsonBody));
+            } else {
+                builder.PUT(HttpRequest.BodyPublishers.noBody());
+            }
+            HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            System.out.println("[DEBUG] putAction URL: " + url + ", Status: " + res.statusCode());
+            if (res.statusCode() >= 400) {
+                javafx.application.Platform.runLater(() -> showAlert("操作失败: " + res.body()));
+            } else {
+                javafx.application.Platform.runLater(() -> showAlert("操作成功"));
             }
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -1867,6 +1944,118 @@ public class DormClientApp extends Application {
 
         box.getChildren().addAll(title, typeBox, generateBtn, new Label("预览："), preview);
         dialog.setScene(new Scene(box, 600, 500));
+        dialog.showAndWait();
+    }
+
+    /** 报修单编辑对话框 */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void showRepairOrderDialog(RepairOrder order, TableView table, String currentStatus, String currentKeyword) {
+        Stage dialog = new Stage();
+        dialog.setTitle("编辑报修单");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        // 报修人（只读）
+        TextField nameField = new TextField(order.getStudentName());
+        nameField.setEditable(false);
+        grid.add(new Label("报修人:"), 0, 0);
+        grid.add(nameField, 1, 0);
+
+        // 宿舍号（可编辑）
+        TextField roomField = new TextField(order.getRoomNumber());
+        grid.add(new Label("宿舍号:"), 0, 1);
+        grid.add(roomField, 1, 1);
+
+        // 报修类型（可编辑）
+        ComboBox<String> typeBox = new ComboBox<>();
+        typeBox.getItems().addAll("水电", "家具", "网络", "门窗", "其他");
+        typeBox.setValue(order.getRepairType());
+        grid.add(new Label("报修类型:"), 0, 2);
+        grid.add(typeBox, 1, 2);
+
+        // 优先级（可编辑）
+        ComboBox<String> priorityBox = new ComboBox<>();
+        priorityBox.getItems().addAll("Low", "Normal", "High", "Urgent");
+        priorityBox.setValue(order.getPriority());
+        grid.add(new Label("优先级:"), 0, 3);
+        grid.add(priorityBox, 1, 3);
+
+        // 状态（可编辑）
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("Pending", "Processing", "Resolved", "Rejected");
+        statusBox.setValue(order.getStatus());
+        grid.add(new Label("状态:"), 0, 4);
+        grid.add(statusBox, 1, 4);
+
+        // 问题描述（可编辑）
+        TextArea descArea = new TextArea(order.getDescription());
+        descArea.setPrefRowCount(4);
+        descArea.setWrapText(true);
+        grid.add(new Label("问题描述:"), 0, 5);
+        grid.add(descArea, 1, 5);
+
+        // 处理意见（可编辑）
+        TextArea remarkArea = new TextArea(order.getAdminRemark());
+        remarkArea.setPromptText("管理员处理意见");
+        remarkArea.setPrefRowCount(3);
+        remarkArea.setWrapText(true);
+        grid.add(new Label("处理意见:"), 0, 6);
+        grid.add(remarkArea, 1, 6);
+
+        // 保存按钮
+        Button saveBtn = new Button("保存");
+        saveBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+        saveBtn.setOnAction(e -> {
+            try {
+                // 构建更新后的报修单
+                order.setRoomNumber(roomField.getText().trim());
+                order.setRepairType(typeBox.getValue());
+                order.setPriority(priorityBox.getValue());
+                order.setStatus(statusBox.getValue());
+                order.setDescription(descArea.getText().trim());
+                order.setAdminRemark(remarkArea.getText().trim());
+
+                // 如果状态改为已解决，设置解决时间
+                if ("Resolved".equals(statusBox.getValue()) && order.getResolvedAt() == null) {
+                    order.setResolvedAt(java.time.LocalDateTime.now());
+                }
+
+                // 发送PUT请求更新
+                String json = mapper.writeValueAsString(order);
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(SERVER_URL + "/api/orders/" + order.getId()))
+                        .header("Content-Type", "application/json")
+                        .PUT(HttpRequest.BodyPublishers.ofString(json))
+                        .build();
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+
+                if (res.statusCode() < 400) {
+                    showAlert("保存成功");
+                    dialog.close();
+                    // 刷新表格
+                    loadOrders(table, currentStatus, currentKeyword);
+                } else {
+                    showAlert("保存失败: " + res.body());
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showAlert("保存失败: " + ex.getMessage());
+            }
+        });
+
+        Button cancelBtn = new Button("取消");
+        cancelBtn.setOnAction(e -> dialog.close());
+
+        HBox btnBox = new HBox(10, saveBtn, cancelBtn);
+        btnBox.setAlignment(Pos.CENTER);
+        grid.add(btnBox, 0, 7, 2, 1);
+
+        dialog.setScene(new Scene(grid, 450, 500));
         dialog.showAndWait();
     }
 

@@ -113,6 +113,28 @@ public class OrderController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    /** 通用更新工单（用于编辑功能） */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateOrder(@PathVariable Long id, @RequestBody RepairOrder updatedOrder) {
+        return repairOrderRepository.findById(id).map(order -> {
+            // 更新允许修改的字段
+            order.setRoomNumber(updatedOrder.getRoomNumber());
+            order.setRepairType(updatedOrder.getRepairType());
+            order.setPriority(updatedOrder.getPriority());
+            order.setStatus(updatedOrder.getStatus());
+            order.setDescription(updatedOrder.getDescription());
+            order.setAdminRemark(updatedOrder.getAdminRemark());
+            
+            // 如果状态改为已解决，设置解决时间
+            if ("Resolved".equals(updatedOrder.getStatus()) && order.getResolvedAt() == null) {
+                order.setResolvedAt(LocalDateTime.now());
+            }
+            
+            System.out.println("【管理员编辑】工单 #" + id);
+            return ResponseEntity.<Object>ok(repairOrderRepository.save(order));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     // ===== 4. 学生操作 =====
 
     /** 学生催单（Pending/Processing 状态可催） */
