@@ -186,12 +186,115 @@ public class DormClientApp extends Application {
 
     // ========== 注册界面 ==========
     private void showRegisterScreen() {
-        // 简化为对话框
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("注册功能暂不开放");
-        alert.setHeaderText("请联系管理员添加账号");
-        alert.setContentText("当前版本仅支持管理员创建的账号登录。如需注册，请联系系统管理员。");
-        alert.showAndWait();
+        Stage registerStage = new Stage();
+        registerStage.setTitle("学生注册");
+        
+        VBox root = new VBox(15);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(30));
+        root.setStyle("-fx-background-color: #f5f5f5;");
+        
+        Label titleLabel = new Label("学生账号注册");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 20));
+        
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("请输入用户名");
+        usernameField.setMaxWidth(250);
+        
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("请输入密码");
+        passwordField.setMaxWidth(250);
+        
+        PasswordField confirmPasswordField = new PasswordField();
+        confirmPasswordField.setPromptText("请确认密码");
+        confirmPasswordField.setMaxWidth(250);
+        
+        Label messageLabel = new Label();
+        messageLabel.setTextFill(Color.RED);
+        
+        Button registerBtn = new Button("注册");
+        registerBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14px;");
+        registerBtn.setPrefWidth(100);
+        
+        Button cancelBtn = new Button("取消");
+        cancelBtn.setPrefWidth(100);
+        
+        HBox buttonBox = new HBox(15);
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.getChildren().addAll(registerBtn, cancelBtn);
+        
+        root.getChildren().addAll(titleLabel, usernameField, passwordField, confirmPasswordField, messageLabel, buttonBox);
+        
+        // 注册按钮事件
+        registerBtn.setOnAction(e -> {
+            String username = usernameField.getText().trim();
+            String password = passwordField.getText();
+            String confirmPassword = confirmPasswordField.getText();
+            
+            // 验证输入
+            if (username.isEmpty() || password.isEmpty()) {
+                messageLabel.setText("用户名和密码不能为空");
+                return;
+            }
+            
+            if (!password.equals(confirmPassword)) {
+                messageLabel.setText("两次输入的密码不一致");
+                return;
+            }
+            
+            if (username.length() < 3 || username.length() > 20) {
+                messageLabel.setText("用户名长度应为3-20个字符");
+                return;
+            }
+            
+            if (password.length() < 6) {
+                messageLabel.setText("密码长度至少为6位");
+                return;
+            }
+            
+            // 调用注册接口
+            performRegister(username, password, messageLabel, registerStage);
+        });
+        
+        // 取消按钮事件
+        cancelBtn.setOnAction(e -> registerStage.close());
+        
+        Scene scene = new Scene(root, 400, 350);
+        registerStage.setScene(scene);
+        registerStage.centerOnScreen();
+        registerStage.show();
+    }
+    
+    // 执行注册请求
+    private void performRegister(String username, String password, Label messageLabel, Stage registerStage) {
+        try {
+            String jsonBody = String.format("{\"username\":\"%s\",\"password\":\"%s\"}", 
+                username.replace("\"", "\\\""), password.replace("\"", "\\\""));
+            
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/api/users/register"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                    .build();
+            
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            
+            if (response.statusCode() == 200) {
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("注册成功");
+                successAlert.setHeaderText(null);
+                successAlert.setContentText("注册成功！请使用新账号登录。");
+                successAlert.showAndWait();
+                registerStage.close();
+            } else if (response.statusCode() == 409) {
+                messageLabel.setText("该用户名已被占用");
+            } else {
+                messageLabel.setText("注册失败：" + response.body());
+            }
+        } catch (Exception ex) {
+            messageLabel.setText("网络错误：" + ex.getMessage());
+        }
     }
 
     // ========== 加载当前学生信息 ==========
@@ -491,6 +594,8 @@ public class DormClientApp extends Application {
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
         TableColumn<RepairOrder, String> nameCol = new TableColumn<>("报修人");
         nameCol.setCellValueFactory(new PropertyValueFactory<>("studentName"));
+        TableColumn<RepairOrder, String> buildingCol = new TableColumn<>("宿舍楼");
+        buildingCol.setCellValueFactory(new PropertyValueFactory<>("building"));
         TableColumn<RepairOrder, String> roomCol = new TableColumn<>("宿舍号");
         roomCol.setCellValueFactory(new PropertyValueFactory<>("roomNumber"));
         TableColumn<RepairOrder, String> typeCol = new TableColumn<>("类型");
@@ -516,7 +621,7 @@ public class DormClientApp extends Application {
             );
         });
 
-        table.getColumns().addAll(idCol, nameCol, roomCol, typeCol, statusCol, timeCol);
+        table.getColumns().addAll(idCol, nameCol, buildingCol, roomCol, typeCol, statusCol, timeCol);
         pane.setCenter(table);
 
         // 操作区
@@ -985,6 +1090,9 @@ public class DormClientApp extends Application {
         nameField.setPromptText("报修人姓名");
         nameField.setText(currentStudentInfo != null ? currentStudentInfo.getRealName() : "");
 
+        TextField buildingField = new TextField();
+        buildingField.setPromptText("如：1号楼、A座等");
+
         TextField roomField = new TextField();
         roomField.setPromptText("宿舍号");
         roomField.setText(currentStudentInfo != null ? currentStudentInfo.getRoomNumber() : "");
@@ -1006,9 +1114,9 @@ public class DormClientApp extends Application {
         Label resultMsg = new Label();
 
         submitBtn.setOnAction(e -> {
-            if (nameField.getText().isEmpty() || roomField.getText().isEmpty() || descArea.getText().isEmpty()) {
+            if (nameField.getText().isEmpty() || buildingField.getText().isEmpty() || roomField.getText().isEmpty() || descArea.getText().isEmpty()) {
                 resultMsg.setStyle("-fx-text-fill: red;");
-                resultMsg.setText("请填写完整信息");
+                resultMsg.setText("请填写完整信息（包括宿舍楼）");
                 return;
             }
             if (descArea.getText().length() < 10) {
@@ -1018,8 +1126,9 @@ public class DormClientApp extends Application {
             }
             try {
                 String body = String.format(
-                    "{\"studentName\":\"%s\",\"roomNumber\":\"%s\",\"repairType\":\"%s\",\"priority\":\"%s\",\"description\":\"%s\",\"userId\":%d}",
+                    "{\"studentName\":\"%s\",\"building\":\"%s\",\"roomNumber\":\"%s\",\"repairType\":\"%s\",\"priority\":\"%s\",\"description\":\"%s\",\"userId\":%d}",
                     nameField.getText().replace("\"", "'"),
+                    buildingField.getText().replace("\"", "'"),
                     roomField.getText().replace("\"", "'"),
                     typeBox.getValue(),
                     priorityBox.getValue(),
@@ -1050,6 +1159,7 @@ public class DormClientApp extends Application {
 
         formBox.getChildren().addAll(
             new Label("报修人:"), nameField,
+            new Label("宿舍楼:"), buildingField,
             new Label("宿舍号:"), roomField,
             new Label("报修类型:"), typeBox,
             new Label("优先级:"), priorityBox,
@@ -1117,10 +1227,12 @@ public class DormClientApp extends Application {
         addGridRow(grid, 4, "院系", currentStudentInfo.getDepartment());
         addGridRow(grid, 5, "专业", currentStudentInfo.getMajor());
         addGridRow(grid, 6, "班级", currentStudentInfo.getClassName());
-        addGridRow(grid, 7, "宿舍", currentStudentInfo.getRoomNumber());
-        addGridRow(grid, 8, "床位", String.valueOf(currentStudentInfo.getBedNumber()));
-        addGridRow(grid, 9, "入住时间", currentStudentInfo.getCheckInDate() != null ?
+        addGridRow(grid, 7, "年级", currentStudentInfo.getGrade() != null ? currentStudentInfo.getGrade() + "级" : "");
+        addGridRow(grid, 8, "宿舍", currentStudentInfo.getRoomNumber());
+        addGridRow(grid, 9, "床位", currentStudentInfo.getBedNumber() != null ? currentStudentInfo.getBedNumber() + "号床" : "");
+        addGridRow(grid, 10, "入住时间", currentStudentInfo.getCheckInDate() != null ?
             currentStudentInfo.getCheckInDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : "");
+        addGridRow(grid, 11, "状态", currentStudentInfo.getStatus());
 
         infoBox.getChildren().add(grid);
         pane.getChildren().add(infoBox);
@@ -2046,17 +2158,22 @@ public class DormClientApp extends Application {
         grid.add(new Label("报修人:"), 0, 0);
         grid.add(nameField, 1, 0);
 
+        // 宿舍楼（可编辑）
+        TextField buildingField = new TextField(order.getBuilding());
+        grid.add(new Label("宿舍楼:"), 0, 1);
+        grid.add(buildingField, 1, 1);
+
         // 宿舍号（可编辑）
         TextField roomField = new TextField(order.getRoomNumber());
-        grid.add(new Label("宿舍号:"), 0, 1);
-        grid.add(roomField, 1, 1);
+        grid.add(new Label("宿舍号:"), 0, 2);
+        grid.add(roomField, 1, 2);
 
         // 报修类型（可编辑）
         ComboBox<String> typeBox = new ComboBox<>();
         typeBox.getItems().addAll("水电", "家具", "网络", "门窗", "其他");
         typeBox.setValue(order.getRepairType());
-        grid.add(new Label("报修类型:"), 0, 2);
-        grid.add(typeBox, 1, 2);
+        grid.add(new Label("报修类型:"), 0, 3);
+        grid.add(typeBox, 1, 3);
 
         // 优先级（可编辑）
         ComboBox<String> priorityBox = new ComboBox<>();
@@ -2093,6 +2210,7 @@ public class DormClientApp extends Application {
         saveBtn.setOnAction(e -> {
             try {
                 // 构建更新后的报修单
+                order.setBuilding(buildingField.getText().trim());
                 order.setRoomNumber(roomField.getText().trim());
                 order.setRepairType(typeBox.getValue());
                 order.setPriority(priorityBox.getValue());

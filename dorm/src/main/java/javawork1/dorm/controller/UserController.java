@@ -1,12 +1,16 @@
 package javawork1.dorm.controller;
 
 import javawork1.dorm.entity.User;
+import javawork1.dorm.entity.StudentInfo;
 import javawork1.dorm.repository.UserRepository;
+import javawork1.dorm.repository.StudentInfoRepository;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/users")
@@ -14,6 +18,9 @@ public class UserController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private StudentInfoRepository studentInfoRepository;
 
     // ================= 接口 1：登录核验 =================
     @PostMapping("/login")
@@ -55,8 +62,19 @@ public class UserController {
         // 防线 4：越权切断，强制锁定为学生
         secureUser.setRole("STUDENT");
 
-        userRepository.save(secureUser);
-        System.out.println("【安检通过】新学生档案已建立！");
+        // 保存用户
+        User savedUser = userRepository.save(secureUser);
+        
+        // 自动创建关联的学生信息记录
+        StudentInfo studentInfo = new StudentInfo();
+        studentInfo.setUserId(savedUser.getId());
+        studentInfo.setRealName(registerRequest.getUsername()); // 默认使用用户名作为真实姓名
+        studentInfo.setStudentNo(""); // 学号留空，由管理员后续完善
+        studentInfo.setStatus("在住");
+        studentInfo.setCheckInDate(LocalDateTime.now());
+        studentInfoRepository.save(studentInfo);
+        
+        System.out.println("【安检通过】新学生档案已建立！用户ID: " + savedUser.getId());
         return ResponseEntity.ok("注册成功！");
     }
 

@@ -17,6 +17,10 @@ public class RepairOrder {
     @Column(name = "room_number", nullable = false, length = 20)
     private String roomNumber;
 
+    /** 宿舍楼 */
+    @Column(name = "building", length = 50)
+    private String building;
+
     @Column(columnDefinition = "TEXT", nullable = false)
     private String description;
 
@@ -66,6 +70,8 @@ public class RepairOrder {
     public void setStudentName(String studentName) { this.studentName = studentName; }
     public String getRoomNumber() { return roomNumber; }
     public void setRoomNumber(String roomNumber) { this.roomNumber = roomNumber; }
+    public String getBuilding() { return building; }
+    public void setBuilding(String building) { this.building = building; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public String getPriority() { return priority; }
