@@ -30,6 +30,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -56,6 +57,9 @@ public class DormClientApp extends Application {
     // 公告管理表格引用（用于仪表盘发布后刷新）
     @SuppressWarnings("rawtypes")
     private TableView announcementTableRef;
+    
+    // 仪表盘定时刷新任务
+    private java.util.Timer dashboardRefreshTimer;
 
     @Override
     public void start(Stage primaryStage) {
@@ -150,7 +154,7 @@ public class DormClientApp extends Application {
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString(json))
                         .build();
-                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
 
                 if (res.statusCode() == 200) {
                     JsonNode node = mapper.readTree(res.body());
@@ -202,7 +206,7 @@ public class DormClientApp extends Application {
                     .uri(URI.create(SERVER_URL + "/api/students/by-user/" + currentUserId))
                     .GET()
                     .build();
-            HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
             if (res.statusCode() == 200) {
                 currentStudentInfo = mapper.readValue(res.body(), StudentInfo.class);
             }
@@ -279,6 +283,27 @@ public class DormClientApp extends Application {
         mainTabPane.setSide(Side.TOP);
         mainTabPane.setStyle("-fx-background-color: transparent; -fx-border-width: 0;");
         mainTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        
+        // 监听标签切换，控制仪表盘定时刷新
+        mainTabPane.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
+            int index = newVal.intValue();
+            // 仪表盘是第2个标签（索引1），切换到仪表盘时启动定时器，离开则停止
+            if (index == 1) {
+                startDashboardRefreshTimer();
+            } else {
+                stopDashboardRefreshTimer();
+            }
+        });
+        
+        // 默认选中仪表盘标签（管理员）或学生首页（学生）
+        if ("ADMIN".equals(currentUserRole)) {
+            // 延迟一点再选中，确保面板已构建完成
+            javafx.application.Platform.runLater(() -> {
+                if (mainTabPane.getTabs().size() > 1) {
+                    mainTabPane.getSelectionModel().select(1); // 选中仪表盘
+                }
+            });
+        }
 
         // 空的首页Tab（用于占位）
         Tab homeTab = new Tab();
@@ -404,8 +429,32 @@ public class DormClientApp extends Application {
         chartArea.getChildren().addAll(leftChart, rightSection);
         pane.setCenter(chartArea);
 
+        // 初始加载数据（定时器由标签切换监听控制）
         new Thread(this::loadDashboardData).start();
+        
         return pane;
+    }
+    
+    /** 启动仪表盘定时刷新 */
+    private void startDashboardRefreshTimer() {
+        // 先停止之前的定时器（如果有）
+        stopDashboardRefreshTimer();
+        
+        dashboardRefreshTimer = new java.util.Timer("DashboardRefresh", true);
+        dashboardRefreshTimer.scheduleAtFixedRate(new java.util.TimerTask() {
+            @Override
+            public void run() {
+                loadDashboardData();
+            }
+        }, 5000, 5000); // 延迟5秒后开始，每5秒执行一次
+    }
+    
+    /** 停止仪表盘定时刷新 */
+    private void stopDashboardRefreshTimer() {
+        if (dashboardRefreshTimer != null) {
+            dashboardRefreshTimer.cancel();
+            dashboardRefreshTimer = null;
+        }
     }
 
     // 2. 报修管理
@@ -509,8 +558,8 @@ public class DormClientApp extends Application {
         resolveBtn.setOnAction(e -> {
             RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
-            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/resolve?remark=" + 
-                    java.net.URLEncoder.encode(remarkArea.getText(), "UTF-8"), null);
+            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/resolve?remark=" +
+                    java.net.URLEncoder.encode(remarkArea.getText(), java.nio.charset.StandardCharsets.UTF_8), null);
             new Thread(() -> {
                 try { Thread.sleep(300); } catch (InterruptedException ignored) {}
                 javafx.application.Platform.runLater(() -> 
@@ -521,8 +570,8 @@ public class DormClientApp extends Application {
         rejectBtn.setOnAction(e -> {
             RepairOrder selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("请先选择一条报修单"); return; }
-            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/reject?remark=" + 
-                    java.net.URLEncoder.encode(remarkArea.getText(), "UTF-8"), null);
+            putAction(SERVER_URL + "/api/orders/" + selected.getId() + "/reject?remark=" +
+                    java.net.URLEncoder.encode(remarkArea.getText(), java.nio.charset.StandardCharsets.UTF_8), null);
             new Thread(() -> {
                 try { Thread.sleep(300); } catch (InterruptedException ignored) {}
                 javafx.application.Platform.runLater(() -> 
@@ -576,7 +625,18 @@ public class DormClientApp extends Application {
         TableColumn<DormRoom, Integer> currentCol = new TableColumn<>("当前");
         currentCol.setCellValueFactory(new PropertyValueFactory<>("currentCount"));
         TableColumn<DormRoom, String> statusCol = new TableColumn<>("状态");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+        statusCol.setCellValueFactory(cell -> javafx.beans.binding.Bindings.createStringBinding(
+            () -> {
+                if (cell.getValue() == null) return "";
+                String status = cell.getValue().getStatus();
+                // 宿舍状态转换为中文显示
+                switch (status) {
+                    case "Normal": return "正常";
+                    case "Maintenance": return "维修中";
+                    case "Closed": return "已关闭";
+                    default: return status != null ? status : "";
+                }
+            }));
 
         table.getColumns().addAll(idCol, buildingCol, roomCol, floorCol, typeCol, capacityCol, currentCol, statusCol);
         pane.setCenter(table);
@@ -972,7 +1032,7 @@ public class DormClientApp extends Application {
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString(body))
                         .build();
-                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (res.statusCode() == 200 || res.statusCode() == 201) {
                     resultMsg.setStyle("-fx-text-fill: green;");
                     resultMsg.setText("报修提交成功！");
@@ -1096,9 +1156,11 @@ public class DormClientApp extends Application {
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(SERVER_URL + "/api/dashboard"))
+                    .header("Accept", "application/json")
                     .GET()
                     .build();
-            String json = client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+            String json = client.send(req, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8)).body();
+            System.out.println("[DEBUG] Dashboard data: " + json);
             JsonNode data = mapper.readTree(json);
             javafx.application.Platform.runLater(() -> {
                 // 直接更新标签
@@ -1152,7 +1214,7 @@ public class DormClientApp extends Application {
                 url += "?status=" + statusParam;
             }
             if (keyword != null && !keyword.trim().isEmpty()) {
-                url += (url.contains("?") ? "&" : "?") + "keyword=" + java.net.URLEncoder.encode(keyword, "UTF-8");
+                url += (url.contains("?") ? "&" : "?") + "keyword=" + java.net.URLEncoder.encode(keyword, java.nio.charset.StandardCharsets.UTF_8);
             }
             System.out.println("[DEBUG] loadOrders URL: " + url);
             String json = fetchJson(url);
@@ -1173,7 +1235,7 @@ public class DormClientApp extends Application {
             String url = SERVER_URL + "/api/rooms";
             // 添加楼栋筛选参数
             if (building != null && !"全部楼栋".equals(building) && !building.isEmpty()) {
-                url += "?building=" + java.net.URLEncoder.encode(building, "UTF-8");
+                url += "?building=" + java.net.URLEncoder.encode(building, java.nio.charset.StandardCharsets.UTF_8);
             }
             System.out.println("[DEBUG] loadDormRooms URL: " + url);
             String json = fetchJson(url);
@@ -1193,7 +1255,7 @@ public class DormClientApp extends Application {
         try {
             String url = SERVER_URL + "/api/students";
             if (keyword != null && !keyword.isEmpty()) {
-                url += "?keyword=" + java.net.URLEncoder.encode(keyword, "UTF-8");
+                url += "?keyword=" + java.net.URLEncoder.encode(keyword, java.nio.charset.StandardCharsets.UTF_8);
             }
             System.out.println("[DEBUG] loadStudents URL: " + url);
             String json = fetchJson(url);
@@ -1365,9 +1427,10 @@ public class DormClientApp extends Application {
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .header("Accept", "application/json")
                 .GET()
                 .build();
-        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
         return res.body();
     }
 
@@ -1382,7 +1445,7 @@ public class DormClientApp extends Application {
             } else {
                 builder.POST(HttpRequest.BodyPublishers.noBody());
             }
-            HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (res.statusCode() >= 400) {
                 javafx.application.Platform.runLater(() -> showAlert("操作失败: " + res.body()));
             }
@@ -1403,7 +1466,7 @@ public class DormClientApp extends Application {
             } else {
                 builder.PUT(HttpRequest.BodyPublishers.noBody());
             }
-            HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> res = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             System.out.println("[DEBUG] putAction URL: " + url + ", Status: " + res.statusCode());
             if (res.statusCode() >= 400) {
                 javafx.application.Platform.runLater(() -> showAlert("操作失败: " + res.body()));
@@ -1424,7 +1487,7 @@ public class DormClientApp extends Application {
                     .uri(URI.create(url))
                     .DELETE()
                     .build();
-            client.send(req, HttpResponse.BodyHandlers.ofString());
+            client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (Exception ex) {
             ex.printStackTrace();
             javafx.application.Platform.runLater(() -> showAlert("删除失败，请检查网络连接"));
@@ -1464,8 +1527,17 @@ public class DormClientApp extends Application {
         typeBox.setValue(room != null && room.getRoomType() != null ? room.getRoomType() : "四人间");
         TextField capacityField = new TextField(room != null ? String.valueOf(room.getCapacity()) : "4");
         ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll("Normal", "Maintenance", "Closed");
-        statusBox.setValue(room != null && room.getStatus() != null ? room.getStatus() : "Normal");
+        statusBox.getItems().addAll("正常", "维修中", "已关闭");
+        // 将英文状态转换为中文显示
+        String currentStatus = room != null ? room.getStatus() : "Normal";
+        String displayStatus;
+        switch (currentStatus) {
+            case "Normal": displayStatus = "正常"; break;
+            case "Maintenance": displayStatus = "维修中"; break;
+            case "Closed": displayStatus = "已关闭"; break;
+            default: displayStatus = currentStatus;
+        }
+        statusBox.setValue(displayStatus);
 
         grid.add(new Label("楼栋:"), 0, 0); grid.add(buildingField, 1, 0);
         grid.add(new Label("房间号:"), 0, 1); grid.add(roomNoField, 1, 1);
@@ -1481,11 +1553,20 @@ public class DormClientApp extends Application {
             try {
                 int floor = Integer.parseInt(floorField.getText().trim());
                 int capacity = Integer.parseInt(capacityField.getText().trim());
+                // 将中文状态转换为英文
+                String selectedStatus = statusBox.getValue();
+                String apiStatus;
+                switch (selectedStatus) {
+                    case "正常": apiStatus = "Normal"; break;
+                    case "维修中": apiStatus = "Maintenance"; break;
+                    case "已关闭": apiStatus = "Closed"; break;
+                    default: apiStatus = selectedStatus;
+                }
                 String body = String.format(
                     "{\"buildingName\":\"%s\",\"roomNumber\":\"%s\",\"floor\":%d,\"roomType\":\"%s\",\"capacity\":%d,\"status\":\"%s\"}",
                     buildingField.getText().replace("\"","'"),
                     roomNoField.getText().replace("\"","'"),
-                    floor, typeBox.getValue(), capacity, statusBox.getValue()
+                    floor, typeBox.getValue(), capacity, apiStatus
                 );
                 HttpClient client = HttpClient.newHttpClient();
                 HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
@@ -1497,7 +1578,7 @@ public class DormClientApp extends Application {
                     reqBuilder.uri(URI.create(SERVER_URL + "/api/rooms/" + room.getId()))
                               .PUT(HttpRequest.BodyPublishers.ofString(body));
                 }
-                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (res.statusCode() < 400) {
                     dialog.close();
                     new Thread(() -> loadDormRooms(table, "全部楼栋", "")).start();
@@ -1584,7 +1665,7 @@ public class DormClientApp extends Application {
                     reqBuilder.uri(URI.create(SERVER_URL + "/api/announcements/" + ann.getId()))
                               .PUT(HttpRequest.BodyPublishers.ofString(body));
                 }
-                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (res.statusCode() < 400) {
                     dialog.close();
                     if (table != null) {
@@ -1688,7 +1769,7 @@ public class DormClientApp extends Application {
                     reqBuilder.uri(URI.create(SERVER_URL + "/api/students/" + student.getId()))
                               .PUT(HttpRequest.BodyPublishers.ofString(body));
                 }
-                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> res = client.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (res.statusCode() < 400) {
                     dialog.close();
                     new Thread(() -> loadStudents(table, "")).start();
@@ -1769,7 +1850,7 @@ public class DormClientApp extends Application {
                                 .header("Content-Type", "application/json")
                                 .POST(HttpRequest.BodyPublishers.ofString(body))
                                 .build();
-                        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                         if (res.statusCode() < 400) success++;
                         else fail++;
                     } catch (Exception ex) {
@@ -1796,7 +1877,7 @@ public class DormClientApp extends Application {
                                 .header("Content-Type", "application/json")
                                 .POST(HttpRequest.BodyPublishers.ofString(body))
                                 .build();
-                        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                         if (res.statusCode() < 400) success++;
                         else fail++;
                     } catch (Exception ex) {
@@ -1862,7 +1943,7 @@ public class DormClientApp extends Application {
                             HttpRequest req1 = HttpRequest.newBuilder()
                                     .uri(URI.create(SERVER_URL + "/api/students"))
                                     .GET().build();
-                            String studentsJson = client.send(req1, HttpResponse.BodyHandlers.ofString()).body();
+                            String studentsJson = client.send(req1, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body();
                             List<StudentInfo> students = mapper.readValue(studentsJson, new TypeReference<List<StudentInfo>>() {});
                             sb.append("总人数：").append(students.size()).append("\n\n");
                             sb.append("学号\t\t姓名\t\t宿舍\t床位\t状态\n");
@@ -1878,7 +1959,7 @@ public class DormClientApp extends Application {
                             HttpRequest req2 = HttpRequest.newBuilder()
                                     .uri(URI.create(SERVER_URL + "/api/rooms"))
                                     .GET().build();
-                            String roomsJson = client.send(req2, HttpResponse.BodyHandlers.ofString()).body();
+                            String roomsJson = client.send(req2, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body();
                             List<DormRoom> rooms = mapper.readValue(roomsJson, new TypeReference<List<DormRoom>>() {});
                             sb.append("总宿舍数：").append(rooms.size()).append("\n\n");
                             sb.append("楼栋\t房间号\t类型\t容量\t当前人数\t状态\n");
@@ -1894,7 +1975,7 @@ public class DormClientApp extends Application {
                             HttpRequest req3 = HttpRequest.newBuilder()
                                     .uri(URI.create(SERVER_URL + "/api/orders"))
                                     .GET().build();
-                            String ordersJson = client.send(req3, HttpResponse.BodyHandlers.ofString()).body();
+                            String ordersJson = client.send(req3, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body();
                             List<RepairOrder> orders = mapper.readValue(ordersJson, new TypeReference<List<RepairOrder>>() {});
                             long pending = orders.stream().filter(o -> "待处理".equals(o.getStatus())).count();
                             long processing = orders.stream().filter(o -> "处理中".equals(o.getStatus())).count();
@@ -1916,7 +1997,7 @@ public class DormClientApp extends Application {
                             HttpRequest req4 = HttpRequest.newBuilder()
                                     .uri(URI.create(SERVER_URL + "/api/announcements/all"))
                                     .GET().build();
-                            String annJson = client.send(req4, HttpResponse.BodyHandlers.ofString()).body();
+                            String annJson = client.send(req4, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body();
                             List<Announcement> anns = mapper.readValue(annJson, new TypeReference<List<Announcement>>() {});
                             sb.append("总公告数：").append(anns.size()).append("\n\n");
                             sb.append("标题\t\t\t类型\t发布人\t状态\t发布时间\n");
@@ -2032,7 +2113,7 @@ public class DormClientApp extends Application {
                         .header("Content-Type", "application/json")
                         .PUT(HttpRequest.BodyPublishers.ofString(json))
                         .build();
-                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
                 if (res.statusCode() < 400) {
                     showAlert("保存成功");
