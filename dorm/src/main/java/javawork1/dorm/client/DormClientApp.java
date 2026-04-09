@@ -37,9 +37,9 @@ public class DormClientApp extends Application {
     public static final String SERVER_URL = "http://localhost:22223";
     private Stage window;
     private ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    private String currentUserRole = "";
-    private Long currentUserId = null;
-    private String currentUsername = "";
+    private static String currentUserRole = "";
+    private static Long currentUserId = null;
+    private static String currentUsername = "";
     private TabPane mainTabPane;
     private StudentInfo currentStudentInfo;
     
@@ -359,6 +359,7 @@ public class DormClientApp extends Application {
         logoutBtn.setOnAction(e -> {
             currentUserRole = "";
             currentUserId = null;
+            currentUsername = "";
             currentStudentInfo = null;
             showLoginScreen();
         });
@@ -2486,37 +2487,37 @@ public class DormClientApp extends Application {
     }
     
     /** 获取当前用户角色 */
-    public String getCurrentUserRole() {
+    public static String getCurrentUserRole() {
         return currentUserRole;
     }
     
     /** 获取当前用户ID */
-    public Long getCurrentUserId() {
+    public static Long getCurrentUserId() {
         return currentUserId;
     }
     
     /** 获取当前用户名 */
-    public String getCurrentUsername() {
+    public static String getCurrentUsername() {
         return currentUsername;
     }
     
     /** 设置当前用户信息 */
-    public void setCurrentUser(String role, Long userId, String username) {
-        this.currentUserRole = role;
-        this.currentUserId = userId;
-        this.currentUsername = username;
+    public static void setCurrentUser(String role, Long userId, String username) {
+        currentUserRole = role;
+        currentUserId = userId;
+        currentUsername = username;
     }
     
     /** 显示管理员首页（供 Controller 调用） */
     public void showAdminHome(Stage stage) {
-        this.currentUserRole = "ADMIN";  // 确保设置为管理员角色
+        currentUserRole = "ADMIN";  // 确保设置为管理员角色
         this.window = stage;
         showMainWorkspace();
     }
     
     /** 显示学生首页（供 Controller 调用） */
     public void showStudentHome(Stage stage) {
-        this.currentUserRole = "STUDENT";  // 确保设置为学生角色
+        currentUserRole = "STUDENT";  // 确保设置为学生角色
         this.window = stage;
         showMainWorkspace();
     }

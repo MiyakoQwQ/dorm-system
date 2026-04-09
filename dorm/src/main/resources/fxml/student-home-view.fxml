@@ -87,6 +87,7 @@
                         </Label>
                         <TableView fx:id="orderTable" VBox.vgrow="ALWAYS">
                             <columns>
+                                <TableColumn fx:id="typeCol" prefWidth="100.0" text="报修类型" />
                                 <TableColumn fx:id="descCol" prefWidth="200.0" text="问题描述" />
                                 <TableColumn fx:id="statusCol" prefWidth="80.0" text="状态" />
                                 <TableColumn fx:id="timeCol" prefWidth="100.0" text="提交时间" />

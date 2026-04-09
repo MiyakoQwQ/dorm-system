@@ -35,6 +35,7 @@ public class StudentHomeController implements Initializable {
     @FXML private Label processingCount;
     @FXML private Label resolvedCount;
     @FXML private TableView<RepairOrder> orderTable;
+    @FXML private TableColumn<RepairOrder, String> typeCol;
     @FXML private TableColumn<RepairOrder, String> descCol;
     @FXML private TableColumn<RepairOrder, String> statusCol;
     @FXML private TableColumn<RepairOrder, String> timeCol;
@@ -50,6 +51,13 @@ public class StudentHomeController implements Initializable {
     }
 
     private void setupTableColumns() {
+        // 报修类型列
+        typeCol.setCellValueFactory(cell -> {
+            String type = cell.getValue().getRepairType();
+            return new SimpleStringProperty(type != null ? type : "");
+        });
+        typeCol.setText("报修类型");
+
         // 问题描述列
         descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
         
@@ -140,13 +148,40 @@ public class StudentHomeController implements Initializable {
     private void loadOrderData() {
         new Thread(() -> {
             try {
-                // 这里需要获取当前登录学生的ID
-                // 暂时使用示例数据
-                Platform.runLater(() -> {
-                    pendingCount.setText("0");
-                    processingCount.setText("0");
-                    resolvedCount.setText("0");
-                });
+                String username = DormClientApp.getCurrentUsername();
+                String url = SERVER_URL + "/api/orders?studentName=" + java.net.URLEncoder.encode(username, StandardCharsets.UTF_8);
+
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .GET()
+                        .build();
+                HttpResponse<String> response = client.send(request,
+                        HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+
+                if (response.statusCode() == 200) {
+                    java.util.List<RepairOrder> orders = new java.util.ArrayList<>();
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+                    RepairOrder[] arr = mapper.readValue(response.body(), RepairOrder[].class);
+                    for (RepairOrder o : arr) orders.add(o);
+
+                    int pending = 0, processing = 0, resolved = 0;
+                    for (RepairOrder o : orders) {
+                        String s = o.getStatus();
+                        if ("Pending".equals(s)) pending++;
+                        else if ("Processing".equals(s)) processing++;
+                        else if ("Resolved".equals(s)) resolved++;
+                    }
+
+                    final int p = pending, pr = processing, r = resolved;
+                    Platform.runLater(() -> {
+                        pendingCount.setText(String.valueOf(p));
+                        processingCount.setText(String.valueOf(pr));
+                        resolvedCount.setText(String.valueOf(r));
+                        orderTable.getItems().setAll(orders);
+                    });
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }

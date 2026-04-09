@@ -60,6 +60,11 @@
                         <Insets top="10.0" />
                     </VBox.margin>
                 </Button>
+                <Button onAction="#handleRegister" prefWidth="270.0" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px;" text="注册">
+                    <VBox.margin>
+                        <Insets top="5.0" />
+                    </VBox.margin>
+                </Button>
             </children>
         </VBox>
         <Label text="© 2026 宿舍管理系统 v1.0" textFill="#95a5a6">

@@ -1,7 +1,11 @@
 package javawork1.dorm.controller;
 
 import javawork1.dorm.entity.RepairOrder;
+import javawork1.dorm.entity.StudentInfo;
+import javawork1.dorm.entity.User;
 import javawork1.dorm.repository.RepairOrderRepository;
+import javawork1.dorm.repository.StudentInfoRepository;
+import javawork1.dorm.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,15 +23,24 @@ public class OrderController {
     @Autowired
     private RepairOrderRepository repairOrderRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private StudentInfoRepository studentInfoRepository;
+
     // ===== 1. 查询 =====
 
-    /** 获取报修单列表，支持关键字搜索 + 状态过滤 */
+    /** 获取报修单列表，支持关键字搜索 + 状态过滤 + 学生姓名过滤 */
     @GetMapping
     public List<RepairOrder> getOrders(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String studentName) {
         List<RepairOrder> result;
-        if (keyword != null && !keyword.trim().isEmpty()) {
+        if (studentName != null && !studentName.trim().isEmpty()) {
+            result = repairOrderRepository.findByStudentNameContaining(studentName);
+        } else if (keyword != null && !keyword.trim().isEmpty()) {
             result = repairOrderRepository.findByStudentNameContainingOrRoomNumberContaining(keyword, keyword);
         } else if (status != null && !status.trim().isEmpty()) {
             result = repairOrderRepository.findByStatus(status);
@@ -56,6 +69,28 @@ public class OrderController {
     /** 学生提交新报修单 */
     @PostMapping
     public RepairOrder createOrder(@RequestBody RepairOrder newOrder) {
+        // 自动根据 username 填充学生姓名和宿舍号
+        String username = newOrder.getStudentName(); // 前端传的是 username
+        String studentName = username;
+        String roomNumber = "未分配";
+
+        if (username != null && !username.isEmpty()) {
+            var optUser = userRepository.findByUsername(username);
+            if (optUser.isPresent()) {
+                var optInfo = studentInfoRepository.findByUserId(optUser.get().getId());
+                if (optInfo.isPresent()) {
+                    StudentInfo info = optInfo.get();
+                    studentName = (info.getRealName() != null && !info.getRealName().isEmpty())
+                            ? info.getRealName() : username;
+                    roomNumber = (info.getRoomNumber() != null && !info.getRoomNumber().isEmpty())
+                            ? info.getRoomNumber() : "未分配";
+                }
+            }
+        }
+        if (studentName == null || studentName.isEmpty()) studentName = "未知学生";
+
+        newOrder.setStudentName(studentName);
+        newOrder.setRoomNumber(roomNumber);
         newOrder.setStatus("Pending");
         newOrder.setUrgeCount(0);
         System.out.println("【报修】收到新工单，报修人: " + newOrder.getStudentName()

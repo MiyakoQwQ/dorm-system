@@ -9,6 +9,8 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Long> 
     List<RepairOrder> findByRoomNumberContaining(String keyword);
     List<RepairOrder> findByStatus(String status);
     List<RepairOrder> findByStudentNameContainingOrRoomNumberContaining(String name, String room);
+    List<RepairOrder> findByStudentName(String studentName);
+    List<RepairOrder> findByStudentNameContaining(String studentName);
 
     @Query("SELECT r.status, COUNT(r) FROM RepairOrder r GROUP BY r.status")
     List<Object[]> countByStatus();

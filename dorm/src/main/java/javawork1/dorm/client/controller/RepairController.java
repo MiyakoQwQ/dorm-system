@@ -75,10 +75,13 @@ public class RepairController implements Initializable {
 
         new Thread(() -> {
             try {
-                // 构建JSON请求体
+                // 获取当前登录用户名
+                String username = DormClientApp.getCurrentUsername();
+
+                // 构建JSON请求体，studentName 传 username 让后端自动填充姓名和宿舍号
                 String jsonBody = String.format(
-                    "{\"type\":\"%s\",\"description\":\"%s\",\"contactPhone\":\"%s\"}",
-                    type, description, phone
+                    "{\"studentName\":\"%s\",\"repairType\":\"%s\",\"description\":\"%s\"}",
+                    username, type, description
                 );
 
                 String url = SERVER_URL + "/api/orders";
