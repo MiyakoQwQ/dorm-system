@@ -6,18 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
@@ -35,7 +34,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class DormClientApp extends Application {
-    private static final String SERVER_URL = "http://localhost:8080";
+    public static final String SERVER_URL = "http://localhost:22223";
     private Stage window;
     private ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private String currentUserRole = "";
@@ -97,6 +96,23 @@ public class DormClientApp extends Application {
 
     // ========== 登录界面 ==========
     private void showLoginScreen() {
+        try {
+            // 使用 FXML 加载登录界面
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/login-view.fxml"));
+            Parent root = loader.load();
+            Scene scene = new Scene(root, 400, 500);
+            window.setScene(scene);
+            window.setTitle("宿舍管理系统 - 登录");
+            window.setResizable(false);
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 如果 FXML 加载失败，回退到代码构建的界面
+            showLoginScreenLegacy();
+        }
+    }
+    
+    // ========== 登录界面（旧版代码构建，作为备用）==========
+    private void showLoginScreenLegacy() {
         VBox loginRoot = new VBox(15);
         loginRoot.setPadding(new Insets(30));
         loginRoot.setAlignment(Pos.CENTER);
@@ -1054,11 +1070,27 @@ public class DormClientApp extends Application {
         myOrders.setStyle("-fx-background-color: white; -fx-padding: 15;");
         myOrders.getChildren().add(new Label("我的报修记录"));
         TableView<RepairOrder> orderTable = new TableView<>();
-        orderTable.setPrefHeight(150);
+        orderTable.setPrefHeight(200);
+        
         TableColumn<RepairOrder, String> descCol = new TableColumn<>("问题描述");
         descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
+        descCol.setPrefWidth(200);
+        
         TableColumn<RepairOrder, String> statusCol = new TableColumn<>("状态");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+        statusCol.setCellValueFactory(cell -> {
+            String status = cell.getValue().getStatus();
+            String displayStatus;
+            switch (status) {
+                case "Pending": displayStatus = "待处理"; break;
+                case "Processing": displayStatus = "处理中"; break;
+                case "Resolved": displayStatus = "已解决"; break;
+                case "Rejected": displayStatus = "已驳回"; break;
+                default: displayStatus = status;
+            }
+            return javafx.beans.binding.Bindings.createStringBinding(() -> displayStatus);
+        });
+        statusCol.setPrefWidth(80);
+        
         TableColumn<RepairOrder, String> timeCol = new TableColumn<>("提交时间");
         timeCol.setCellValueFactory(cell -> {
             if (cell.getValue().getCreatedAt() == null) return null;
@@ -1066,7 +1098,74 @@ public class DormClientApp extends Application {
                 cell.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
             );
         });
-        orderTable.getColumns().addAll(descCol, statusCol, timeCol);
+        timeCol.setPrefWidth(100);
+        
+        // 催单列
+        TableColumn<RepairOrder, Void> urgeCol = new TableColumn<>("催单");
+        urgeCol.setPrefWidth(80);
+        urgeCol.setCellFactory(col -> new TableCell<>() {
+            private final Button btn = new Button("催单");
+            {
+                btn.setStyle("-fx-font-size: 11px; -fx-padding: 2 8;");
+                btn.setOnAction(e -> {
+                    RepairOrder order = getTableView().getItems().get(getIndex());
+                    handleUrgeOrder(order, orderTable);
+                });
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    RepairOrder order = getTableView().getItems().get(getIndex());
+                    // 只有待处理和处理中的订单可以催单，且最多3次
+                    boolean canUrge = ("Pending".equals(order.getStatus()) || "Processing".equals(order.getStatus()))
+                            && order.getUrgeCount() != null && order.getUrgeCount() < 3;
+                    btn.setDisable(!canUrge);
+                    if (order.getUrgeCount() != null && order.getUrgeCount() > 0) {
+                        btn.setText("催(" + order.getUrgeCount() + ")");
+                    } else {
+                        btn.setText("催单");
+                    }
+                    setGraphic(btn);
+                }
+            }
+        });
+        
+        // 评价列
+        TableColumn<RepairOrder, Void> reviewCol = new TableColumn<>("评价");
+        reviewCol.setPrefWidth(80);
+        reviewCol.setCellFactory(col -> new TableCell<>() {
+            private final Button btn = new Button("评价");
+            {
+                btn.setStyle("-fx-font-size: 11px; -fx-padding: 2 8;");
+                btn.setOnAction(e -> {
+                    RepairOrder order = getTableView().getItems().get(getIndex());
+                    showReviewDialog(order, orderTable);
+                });
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    RepairOrder order = getTableView().getItems().get(getIndex());
+                    // 只有已解决的订单可以评价，且只能评价一次
+                    boolean canReview = "Resolved".equals(order.getStatus()) && order.getRating() == null;
+                    btn.setDisable(!canReview);
+                    if (order.getRating() != null) {
+                        btn.setText("★" + order.getRating());
+                    } else {
+                        btn.setText("评价");
+                    }
+                    setGraphic(btn);
+                }
+            }
+        });
+        
+        orderTable.getColumns().addAll(descCol, statusCol, timeCol, urgeCol, reviewCol);
         myOrders.getChildren().add(orderTable);
 
         pane.getChildren().addAll(welcomeBox, quickActions, myOrders);
@@ -1614,6 +1713,127 @@ public class DormClientApp extends Application {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    /** 催单处理 */
+    private void handleUrgeOrder(RepairOrder order, TableView<RepairOrder> table) {
+        if (order == null || order.getId() == null) return;
+        
+        new Thread(() -> {
+            try {
+                String url = SERVER_URL + "/api/orders/" + order.getId() + "/urge";
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Content-Type", "application/json")
+                        .PUT(HttpRequest.BodyPublishers.noBody())
+                        .build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                
+                javafx.application.Platform.runLater(() -> {
+                    if (response.statusCode() == 200) {
+                        showAlert("催单成功！已通知管理员加快处理");
+                        // 刷新列表
+                        loadMyOrders(table);
+                    } else {
+                        showAlert("催单失败: " + response.body());
+                    }
+                });
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() -> showAlert("催单失败，请检查网络连接"));
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    /** 评价对话框 */
+    private void showReviewDialog(RepairOrder order, TableView<RepairOrder> table) {
+        if (order == null || order.getId() == null) return;
+        
+        Stage dialog = new Stage();
+        dialog.setTitle("评价工单");
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setAlignment(javafx.geometry.Pos.CENTER);
+
+        Label titleLabel = new Label("为本次维修服务评分");
+        titleLabel.setFont(Font.font(14));
+
+        // 评分选择
+        HBox ratingBox = new HBox(10);
+        ratingBox.setAlignment(javafx.geometry.Pos.CENTER);
+        ToggleGroup ratingGroup = new ToggleGroup();
+        RadioButton[] ratingBtns = new RadioButton[5];
+        for (int i = 1; i <= 5; i++) {
+            ratingBtns[i-1] = new RadioButton(String.valueOf(i));
+            ratingBtns[i-1].setToggleGroup(ratingGroup);
+            ratingBtns[i-1].setUserData(i);
+            ratingBox.getChildren().add(ratingBtns[i-1]);
+        }
+        ratingBtns[4].setSelected(true); // 默认5星
+
+        // 评价内容
+        TextArea commentArea = new TextArea();
+        commentArea.setPromptText("请输入您的评价（可选）");
+        commentArea.setPrefRowCount(3);
+        commentArea.setPrefWidth(300);
+
+        // 按钮
+        HBox btnBox = new HBox(15);
+        btnBox.setAlignment(javafx.geometry.Pos.CENTER);
+        Button submitBtn = new Button("提交评价");
+        Button cancelBtn = new Button("取消");
+        
+        submitBtn.setOnAction(e -> {
+            int rating = (int) ratingGroup.getSelectedToggle().getUserData();
+            String comment = commentArea.getText().trim();
+            submitReview(order.getId(), rating, comment, table, dialog);
+        });
+        
+        cancelBtn.setOnAction(e -> dialog.close());
+        btnBox.getChildren().addAll(submitBtn, cancelBtn);
+
+        content.getChildren().addAll(titleLabel, ratingBox, commentArea, btnBox);
+
+        Scene scene = new Scene(content);
+        dialog.setScene(scene);
+        dialog.showAndWait();
+    }
+
+    /** 提交评价 */
+    private void submitReview(Long orderId, int rating, String comment, TableView<RepairOrder> table, Stage dialog) {
+        new Thread(() -> {
+            try {
+                String url = SERVER_URL + "/api/orders/" + orderId + "/review?rating=" + rating;
+                if (!comment.isEmpty()) {
+                    url += "&comment=" + java.net.URLEncoder.encode(comment, StandardCharsets.UTF_8);
+                }
+                
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Content-Type", "application/json")
+                        .PUT(HttpRequest.BodyPublishers.noBody())
+                        .build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                
+                javafx.application.Platform.runLater(() -> {
+                    if (response.statusCode() == 200) {
+                        showAlert("评价提交成功！感谢您的反馈");
+                        dialog.close();
+                        // 刷新列表
+                        loadMyOrders(table);
+                    } else {
+                        showAlert("评价失败: " + response.body());
+                    }
+                });
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() -> showAlert("评价失败，请检查网络连接"));
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     /** 宿舍新增/编辑对话框 */
@@ -2256,6 +2476,49 @@ public class DormClientApp extends Application {
 
         dialog.setScene(new Scene(grid, 450, 500));
         dialog.showAndWait();
+    }
+
+    // ========== 公共方法，供 Controller 调用 ==========
+    
+    /** 获取主窗口 */
+    public Stage getWindow() {
+        return window;
+    }
+    
+    /** 获取当前用户角色 */
+    public String getCurrentUserRole() {
+        return currentUserRole;
+    }
+    
+    /** 获取当前用户ID */
+    public Long getCurrentUserId() {
+        return currentUserId;
+    }
+    
+    /** 获取当前用户名 */
+    public String getCurrentUsername() {
+        return currentUsername;
+    }
+    
+    /** 设置当前用户信息 */
+    public void setCurrentUser(String role, Long userId, String username) {
+        this.currentUserRole = role;
+        this.currentUserId = userId;
+        this.currentUsername = username;
+    }
+    
+    /** 显示管理员首页（供 Controller 调用） */
+    public void showAdminHome(Stage stage) {
+        this.currentUserRole = "ADMIN";  // 确保设置为管理员角色
+        this.window = stage;
+        showMainWorkspace();
+    }
+    
+    /** 显示学生首页（供 Controller 调用） */
+    public void showStudentHome(Stage stage) {
+        this.currentUserRole = "STUDENT";  // 确保设置为学生角色
+        this.window = stage;
+        showMainWorkspace();
     }
 
     public static void main(String[] args) {

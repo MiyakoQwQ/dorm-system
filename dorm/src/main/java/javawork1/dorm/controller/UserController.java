@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api")
 public class UserController {
 
     @Autowired
@@ -22,9 +22,38 @@ public class UserController {
     @Autowired
     private StudentInfoRepository studentInfoRepository;
 
-    // ================= 接口 1：登录核验 =================
+    // ================= 接口 1：登录核验（兼容前端调用） =================
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User loginRequest) {
+    public ResponseEntity<?> login(@RequestParam String username, 
+                                    @RequestParam String password,
+                                    @RequestParam String role) {
+        System.out.println("【安检中心】收到登录请求，账号: " + username + ", 角色: " + role);
+
+        return userRepository.findByUsername(username)
+                .map(user -> {
+                    if (BCrypt.checkpw(password, user.getPassword())) {
+                        // 验证角色是否匹配
+                        if (user.getRole().equals(role)) {
+                            System.out.println("【安检通过】身份: " + user.getRole());
+                            return ResponseEntity.ok(user.getRole());
+                        } else {
+                            System.out.println("【安检拦截】角色不匹配");
+                            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("角色不匹配");
+                        }
+                    } else {
+                        System.out.println("【安检拦截】密码碰撞失败");
+                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("密码错误");
+                    }
+                })
+                .orElseGet(() -> {
+                    System.out.println("【安检拦截】账号不存在");
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("账号不存在");
+                });
+    }
+
+    // ================= 接口 2：登录核验（JSON请求体方式） =================
+    @PostMapping("/users/login")
+    public ResponseEntity<?> loginWithBody(@RequestBody User loginRequest) {
         System.out.println("【安检中心】收到登录请求，账号: " + loginRequest.getUsername());
 
         return userRepository.findByUsername(loginRequest.getUsername())
@@ -43,8 +72,8 @@ public class UserController {
                 });
     }
 
-    // ================= 接口 2：安全注册 (新增) =================
-    @PostMapping("/register")
+    // ================= 接口 3：安全注册 (新增) =================
+    @PostMapping("/users/register")
     public ResponseEntity<?> register(@RequestBody User registerRequest) {
         System.out.println("【安检中心】收到注册申请，申请账号: " + registerRequest.getUsername());
 
@@ -78,8 +107,8 @@ public class UserController {
         return ResponseEntity.ok("注册成功！");
     }
 
-    // ================= 接口 3：初始化测试数据 =================
-    @GetMapping("/init")
+    // ================= 接口 4：初始化测试数据 =================
+    @GetMapping("/users/init")
     public String initTestUsers() {
         if(userRepository.count() == 0) {
             User admin = new User();

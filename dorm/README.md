@@ -26,4 +26,6 @@
 *我用ai搞了个哈希加密，数据库里不会有实际账号密码（*
 
 **4. 启动客户端**
-运行 `DormClientApp.java` 的 main 方法即可进入工作台。
+运行 `MainLauncher.java` 的 main 方法即可进入工作台。
+
+注意：请使用 `MainLauncher` 作为启动入口，它会正确加载 JavaFX 应用。不要直接运行 `DormClientApp`。
