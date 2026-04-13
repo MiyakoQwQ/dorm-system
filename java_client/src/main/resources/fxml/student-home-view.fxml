@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="javawork1.dorm.client.controller.StudentHomeController">
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-background-color: #3498db; -fx-padding: 15;">
+            <children>
+                <Label text="宿舍管理系统" textFill="WHITE">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+                <HBox HBox.hgrow="ALWAYS" />
+                <Label fx:id="welcomeLabel" text="欢迎，同学" textFill="WHITE">
+                    <font>
+                        <Font size="14.0" />
+                    </font>
+                </Label>
+                <Button fx:id="logoutBtn" onAction="#handleLogout" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" text="退出" />
+            </children>
+        </HBox>
+    </top>
+    <left>
+        <VBox spacing="10.0" style="-fx-background-color: #2c3e50; -fx-padding: 15; -fx-min-width: 150;">
+            <children>
+                <Button fx:id="homeBtn" onAction="#showHome" prefWidth="120.0" style="-fx-background-color: transparent; -fx-text-fill: white;" text="🏠 首页" />
+                <Button fx:id="repairBtn" onAction="#showRepair" prefWidth="120.0" style="-fx-background-color: transparent; -fx-text-fill: white;" text="🔧 我要报修" />
+                <Button fx:id="profileBtn" onAction="#showProfile" prefWidth="120.0" style="-fx-background-color: transparent; -fx-text-fill: white;" text="👤 个人信息" />
+            </children>
+        </VBox>
+    </left>
+    <center>
+        <VBox fx:id="contentArea" spacing="15.0" style="-fx-background-color: #ecf0f1; -fx-padding: 20;">
+            <children>
+                <!-- 统计卡片 -->
+                <HBox spacing="15.0">
+                    <children>
+                        <VBox alignment="CENTER" prefWidth="150.0" spacing="5.0" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8;">
+                            <children>
+                                <Label text="待处理" textFill="#7f8c8d" />
+                                <Label fx:id="pendingCount" text="0" textFill="#e74c3c">
+                                    <font>
+                                        <Font name="System Bold" size="24.0" />
+                                    </font>
+                                </Label>
+                            </children>
+                        </VBox>
+                        <VBox alignment="CENTER" prefWidth="150.0" spacing="5.0" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8;">
+                            <children>
+                                <Label text="处理中" textFill="#7f8c8d" />
+                                <Label fx:id="processingCount" text="0" textFill="#f39c12">
+                                    <font>
+                                        <Font name="System Bold" size="24.0" />
+                                    </font>
+                                </Label>
+                            </children>
+                        </VBox>
+                        <VBox alignment="CENTER" prefWidth="150.0" spacing="5.0" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8;">
+                            <children>
+                                <Label text="已完成" textFill="#7f8c8d" />
+                                <Label fx:id="resolvedCount" text="0" textFill="#27ae60">
+                                    <font>
+                                        <Font name="System Bold" size="24.0" />
+                                    </font>
+                                </Label>
+                            </children>
+                        </VBox>
+                    </children>
+                </HBox>
+                
+                <!-- 报修记录表格 -->
+                <VBox spacing="10.0" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8;" VBox.vgrow="ALWAYS">
+                    <children>
+                        <Label text="我的报修记录" textFill="#2c3e50">
+                            <font>
+                                <Font name="System Bold" size="16.0" />
+                            </font>
+                        </Label>
+                        <TableView fx:id="orderTable" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="typeCol" prefWidth="100.0" text="报修类型" />
+                                <TableColumn fx:id="descCol" prefWidth="200.0" text="问题描述" />
+                                <TableColumn fx:id="statusCol" prefWidth="80.0" text="状态" />
+                                <TableColumn fx:id="timeCol" prefWidth="100.0" text="提交时间" />
+                                <TableColumn fx:id="urgeCol" prefWidth="80.0" text="催单" />
+                                <TableColumn fx:id="reviewCol" prefWidth="80.0" text="评价" />
+                            </columns>
+                        </TableView>
+                    </children>
+                </VBox>
+            </children>
+        </VBox>
+    </center>
+</BorderPane>

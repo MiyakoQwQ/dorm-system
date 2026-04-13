@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="javawork1.dorm.client.controller.RepairController">
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-background-color: #3498db; -fx-padding: 15;">
+            <children>
+                <Label text="宿舍管理系统" textFill="WHITE">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+                <HBox HBox.hgrow="ALWAYS" />
+                <Label fx:id="welcomeLabel" text="欢迎，同学" textFill="WHITE">
+                    <font>
+                        <Font size="14.0" />
+                    </font>
+                </Label>
+                <Button fx:id="logoutBtn" onAction="#handleLogout" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" text="退出" />
+            </children>
+        </HBox>
+    </top>
+    <left>
+        <VBox spacing="10.0" style="-fx-background-color: #2c3e50; -fx-padding: 15; -fx-min-width: 150;">
+            <children>
+                <Button fx:id="homeBtn" onAction="#showHome" prefWidth="120.0" style="-fx-background-color: transparent; -fx-text-fill: white;" text="🏠 首页" />
+                <Button fx:id="repairBtn" onAction="#showRepair" prefWidth="120.0" style="-fx-background-color: #3498db; -fx-text-fill: white;" text="🔧 我要报修" />
+                <Button fx:id="profileBtn" onAction="#showProfile" prefWidth="120.0" style="-fx-background-color: transparent; -fx-text-fill: white;" text="👤 个人信息" />
+            </children>
+        </VBox>
+    </left>
+    <center>
+        <VBox alignment="TOP_CENTER" spacing="20.0" style="-fx-background-color: #ecf0f1; -fx-padding: 40;">
+            <children>
+                <Label text="提交报修申请" textFill="#2c3e50">
+                    <font>
+                        <Font name="System Bold" size="20.0" />
+                    </font>
+                </Label>
+                <VBox maxWidth="500.0" spacing="15.0" style="-fx-background-color: white; -fx-padding: 30; -fx-background-radius: 8;">
+                    <children>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <children>
+                                <Label minWidth="80.0" text="报修类型：" />
+                                <ComboBox fx:id="typeCombo" prefWidth="300.0" promptText="请选择报修类型" />
+                            </children>
+                        </HBox>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <children>
+                                <Label minWidth="80.0" text="问题描述：" />
+                                <TextArea fx:id="descArea" prefHeight="100.0" prefWidth="300.0" promptText="请详细描述您遇到的问题..." wrapText="true" />
+                            </children>
+                        </HBox>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <children>
+                                <Label minWidth="80.0" text="联系电话：" />
+                                <TextField fx:id="phoneField" prefWidth="300.0" promptText="请输入您的联系电话" />
+                            </children>
+                        </HBox>
+                        <Label fx:id="errorLabel" textFill="#e74c3c" wrapText="true">
+                            <font>
+                                <Font size="12.0" />
+                            </font>
+                        </Label>
+                        <HBox alignment="CENTER" spacing="15.0">
+                            <children>
+                                <Button fx:id="submitBtn" onAction="#handleSubmit" prefWidth="120.0" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px;" text="提交申请" />
+                                <Button fx:id="resetBtn" onAction="#handleReset" prefWidth="120.0" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-size: 14px;" text="重置" />
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+            </children>
+        </VBox>
+    </center>
+</BorderPane>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox alignment="CENTER" spacing="15.0" style="-fx-background-color: #f5f5f5;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="javawork1.dorm.client.controller.LoginController">
+    <padding>
+        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+    </padding>
+    <children>
+        <Label text="宿舍管理系统" textFill="#2c3e50">
+            <font>
+                <Font name="System Bold" size="28.0" />
+            </font>
+        </Label>
+        <Label text="Dormitory Management System" textFill="#7f8c8d">
+            <font>
+                <Font size="14.0" />
+            </font>
+        </Label>
+        <VBox spacing="10.0" style="-fx-background-color: white; -fx-padding: 30; -fx-background-radius: 8;">
+            <children>
+                <Label text="用户登录" textFill="#2c3e50">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <children>
+                        <Label minWidth="60.0" text="角色：" />
+                        <ComboBox fx:id="roleCombo" prefWidth="200.0" promptText="选择角色" />
+                    </children>
+                </HBox>
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <children>
+                        <Label minWidth="60.0" text="账号：" />
+                        <TextField fx:id="usernameField" prefWidth="200.0" promptText="请输入账号" />
+                    </children>
+                </HBox>
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <children>
+                        <Label minWidth="60.0" text="密码：" />
+                        <PasswordField fx:id="passwordField" prefWidth="200.0" promptText="请输入密码" />
+                    </children>
+                </HBox>
+                <Label fx:id="errorLabel" textFill="#e74c3c" wrapText="true">
+                    <font>
+                        <Font size="12.0" />
+                    </font>
+                </Label>
+                <Button fx:id="loginBtn" defaultButton="true" onAction="#handleLogin" prefWidth="270.0" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14px;" text="登录">
+                    <VBox.margin>
+                        <Insets top="10.0" />
+                    </VBox.margin>
+                </Button>
+                <Button onAction="#handleRegister" prefWidth="270.0" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px;" text="注册">
+                    <VBox.margin>
+                        <Insets top="5.0" />
+                    </VBox.margin>
+                </Button>
+            </children>
+        </VBox>
+        <Label text="© 2026 宿舍管理系统 v1.0" textFill="#95a5a6">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Label>
+    </children>
+</VBox>
