@@ -312,7 +312,15 @@ public class StudentHomeController implements Initializable {
 
     @FXML
     private void showProfile() {
-        showAlert("个人信息功能开发中...");
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/profile-view.fxml"));
+            Parent root = loader.load();
+            Stage stage = (Stage) welcomeLabel.getScene().getWindow();
+            stage.setScene(new Scene(root, 900, 600));
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert("加载个人信息页面失败：" + e.getMessage());
+        }
     }
 
     @FXML

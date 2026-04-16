@@ -51,7 +51,22 @@ public class UserController {
                 });
     }
 
-    // ================= 接口 2：登录核验（JSON请求体方式） =================
+    // ================= 接口 2：根据用户名获取用户信息 =================
+    @GetMapping("/users/by-username")
+    public ResponseEntity<?> getUserByUsername(@RequestParam String username) {
+        return userRepository.findByUsername(username)
+                .map(user -> {
+                    // 清除敏感信息
+                    User safeUser = new User();
+                    safeUser.setId(user.getId());
+                    safeUser.setUsername(user.getUsername());
+                    safeUser.setRole(user.getRole());
+                    return ResponseEntity.ok(safeUser);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // ================= 接口 3：登录核验（JSON请求体方式） =================
     @PostMapping("/users/login")
     public ResponseEntity<?> loginWithBody(@RequestBody User loginRequest) {
         System.out.println("【安检中心】收到登录请求，账号: " + loginRequest.getUsername());
