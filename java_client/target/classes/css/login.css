@@ -1,0 +1,119 @@
+/* 登录界面样式 */
+
+.root {
+    -fx-background-color: linear-gradient(to bottom right, #667eea 0%, #764ba2 100%);
+    -fx-font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+/* 登录卡片 */
+.login-card {
+    -fx-background-color: white;
+    -fx-background-radius: 15px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 10);
+    -fx-padding: 40px;
+}
+
+/* 标题样式 */
+.title-label {
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d3748;
+}
+
+.subtitle-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #718096;
+}
+
+/* 输入框样式 */
+.input-field {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 8px;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-padding: 12px 15px;
+    -fx-font-size: 14px;
+    -fx-prompt-text-fill: #a0aec0;
+}
+
+.input-field:focused {
+    -fx-background-color: white;
+    -fx-border-color: #667eea;
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.2), 5, 0, 0, 0);
+}
+
+/* 下拉框样式 */
+.combo-box {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 8px;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-padding: 5px;
+}
+
+.combo-box:focused {
+    -fx-border-color: #667eea;
+}
+
+.combo-box .list-cell {
+    -fx-padding: 8px 12px;
+}
+
+/* 按钮样式 */
+.login-btn {
+    -fx-background-color: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+    -fx-background-radius: 8px;
+    -fx-text-fill: white;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 12px 30px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.4), 10, 0, 0, 4);
+}
+
+.login-btn:hover {
+    -fx-background-color: linear-gradient(to right, #5a67d8 0%, #6b46c1 100%);
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.6), 15, 0, 0, 6);
+}
+
+.login-btn:pressed {
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.2), 5, 0, 0, 2);
+}
+
+.register-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8px;
+    -fx-border-color: #667eea;
+    -fx-border-radius: 8px;
+    -fx-border-width: 2px;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 12px 30px;
+    -fx-cursor: hand;
+}
+
+.register-btn:hover {
+    -fx-background-color: rgba(102,126,234,0.1);
+}
+
+/* 错误提示 */
+.error-label {
+    -fx-text-fill: #e53e3e;
+    -fx-font-size: 12px;
+}
+
+/* 页脚 */
+.footer-label {
+    -fx-text-fill: rgba(255,255,255,0.7);
+    -fx-font-size: 11px;
+}
+
+/* 输入框标签 */
+.input-label {
+    -fx-text-fill: #4a5568;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
